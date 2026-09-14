@@ -34,7 +34,20 @@ Before handing off a change, run:
 ```bash
 npm run build
 npm test
+npm run lint
 ```
+
+`npm test` builds, then runs every `tests/*.test.mjs` file on Node's built-in
+test runner — no test framework is installed, and Node strips the TypeScript in
+`app/` on import, so specs can import `app/**/*.ts` directly.
+
+- `tests/rendered-html.test.mjs` — server-rendered HTML for `/` and `/studio`.
+- `tests/story-modules.test.mjs` — share payload round-trip, sticker tilt and id
+  shape, and the data invariants (every kind has copy for every tone, accents all
+  have a hex colour, filter ids unique).
+
+Neither file can reach the editor's interactions. PNG export, sticker dragging,
+photo upload and the share modal still have to be checked in a browser.
 
 The local development server normally runs at `http://localhost:3000`.
 
