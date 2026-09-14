@@ -1,0 +1,12 @@
+export type StoryKind = "friendship" | "month" | "trip" | "work" | "era";
+export type Tone = "warm" | "funny" | "honest";
+export type Decoration = "classic" | "botanical" | "mono" | "playful";
+export type Accent = "coral" | "sage" | "ink" | "mustard" | "lavender" | "blue";
+export type PhotoFilter = "original" | "warm" | "film" | "mono" | "dream";
+export type ToolTab = "content" | "style" | "photo" | "stickers";
+export type FontStyle = "editorial" | "rounded" | "mono";
+export type PaperTone = "cream" | "white" | "blush" | "sage";
+export type EdgeStyle = "torn" | "straight" | "rounded";
+export type StoryItem = { id: string; label: string; quantity: string };
+export type DiySticker = { id: string; symbol: string; label: string; x: number; y: number; size: number; rotation: number };
+export type SharedStory = { kind: StoryKind; names: string; note: string; tone: Tone; decoration?: Decoration; accent?: Accent; fontStyle?: FontStyle; paperTone?: PaperTone; edgeStyle?: EdgeStyle; textScale?: number; stickers?: DiySticker[]; items: StoryItem[]; total: string; edition: number };
