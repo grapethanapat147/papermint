@@ -1,9 +1,21 @@
-import { useCallback, useState, type DragEvent as ReactDragEvent, type RefObject } from "react";
+import { useCallback, useRef, useState, type DragEvent as ReactDragEvent, type RefObject } from "react";
 
 import { makeId, randomStickerTilt } from "../lib/random";
 import type { DiySticker } from "../types";
 
 const EDGE_PADDING_PERCENT = 4;
+/** Matches the size and rotate sliders, so a gesture cannot exceed them. */
+const MIN_SIZE = 12;
+const MAX_SIZE = 48;
+const MAX_ROTATION = 30;
+
+const clampSize = (value: number) => Math.round(Math.max(MIN_SIZE, Math.min(MAX_SIZE, value)));
+const clampRotation = (value: number) => Math.round(Math.max(-MAX_ROTATION, Math.min(MAX_ROTATION, value)));
+
+const spanOf = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+  distance: Math.hypot(b.x - a.x, b.y - a.y),
+  angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+});
 
 const clampToReceipt = (value: number) =>
   Math.max(EDGE_PADDING_PERCENT, Math.min(100 - EDGE_PADDING_PERCENT, value));
@@ -30,6 +42,40 @@ export function useStickers(
   const [customStickerText, setCustomStickerText] = useState("");
 
   const selectedSticker = stickers.find((sticker) => sticker.id === selectedStickerId) ?? null;
+
+  // Two-finger pinch and twist. Tracked per pointer id so the second finger can
+  // land after the first without restarting the gesture.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gesture = useRef<{ id: string; distance: number; angle: number; size: number; rotation: number } | null>(null);
+
+  function trackPointerDown(sticker: DiySticker, pointerId: number, x: number, y: number) {
+    pointers.current.set(pointerId, { x, y });
+    if (pointers.current.size !== 2) return;
+    const [a, b] = [...pointers.current.values()];
+    const span = spanOf(a, b);
+    gesture.current = { id: sticker.id, distance: span.distance, angle: span.angle, size: sticker.size, rotation: sticker.rotation };
+  }
+
+  /** True when two fingers consumed the move, so the caller skips repositioning. */
+  function trackPointerMove(pointerId: number, x: number, y: number): boolean {
+    if (!pointers.current.has(pointerId)) return false;
+    pointers.current.set(pointerId, { x, y });
+    const active = gesture.current;
+    if (!active || pointers.current.size < 2 || active.distance === 0) return false;
+    const [a, b] = [...pointers.current.values()];
+    const span = spanOf(a, b);
+    const size = clampSize(active.size * (span.distance / active.distance));
+    const rotation = clampRotation(active.rotation + (span.angle - active.angle));
+    setStickers((current) => current.map((sticker) => sticker.id === active.id ? { ...sticker, size, rotation } : sticker));
+    return true;
+  }
+
+  /** True once no fingers remain, so the caller knows when the drag really ended. */
+  function trackPointerUp(pointerId: number): boolean {
+    pointers.current.delete(pointerId);
+    if (pointers.current.size < 2) gesture.current = null;
+    return pointers.current.size === 0;
+  }
 
   function addSticker(symbol: string, label: string, x = 50, y = 32) {
     const sticker = { id: makeId(), symbol, label, x, y, size: symbol.length > 3 ? 14 : 26, rotation: randomStickerTilt() };
@@ -80,5 +126,6 @@ export function useStickers(
     stickers, selectedStickerId, draggingStickerId, customStickerText, selectedSticker,
     setSelectedStickerId, setDraggingStickerId, setCustomStickerText, hydrateStickers,
     addSticker, updateSelectedSticker, removeSelectedSticker, positionSticker, handleReceiptDrop,
+    trackPointerDown, trackPointerMove, trackPointerUp,
   };
 }

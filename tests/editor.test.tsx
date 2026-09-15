@@ -411,3 +411,79 @@ describe("sticker dragging", () => {
     expect(moved.style.top).toBe("50%");
   });
 });
+
+describe("two-finger sticker gestures", () => {
+  const addHeart = () => {
+    fireEvent.click(tab("Stickers"));
+    fireEvent.click(within(panel("Sticker tools") as HTMLElement).getByRole("button", { name: /Heart/i }));
+    const sticker = document.querySelector(".diy-sticker") as HTMLElement;
+    sticker.setPointerCapture = vi.fn();
+    sticker.releasePointerCapture = vi.fn();
+    return sticker;
+  };
+  const sizePx = () => Number(/([\d.]+)px/.exec((document.querySelector(".diy-sticker") as HTMLElement).style.fontSize)?.[1]);
+  const rotationDeg = () => Number(/rotate\((-?[\d.]+)deg\)/.exec((document.querySelector(".diy-sticker") as HTMLElement).style.transform)?.[1]);
+
+  test("spreading two fingers grows the sticker", () => {
+    render(<StoriesHome />);
+    const sticker = addHeart();
+    const before = sizePx();
+    // stickers land with a random tilt, so compare against where this one started
+    const tiltBefore = rotationDeg();
+
+    fireEvent.pointerDown(sticker, { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(sticker, { pointerId: 2, pointerType: "touch", clientX: 140, clientY: 100 });
+    // same axis, double the gap: size doubles, rotation unchanged
+    fireEvent.pointerMove(sticker, { pointerId: 2, pointerType: "touch", clientX: 180, clientY: 100 });
+
+    expect(sizePx()).toBe(Math.min(48, before * 2));
+    expect(rotationDeg()).toBe(tiltBefore);
+  });
+
+  test("pinching in shrinks it, clamped to the slider's minimum", () => {
+    render(<StoriesHome />);
+    const sticker = addHeart();
+
+    fireEvent.pointerDown(sticker, { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(sticker, { pointerId: 2, pointerType: "touch", clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(sticker, { pointerId: 2, pointerType: "touch", clientX: 101, clientY: 100 });
+
+    expect(sizePx()).toBe(12);
+  });
+
+  test("twisting two fingers rotates it, clamped to the slider's range", () => {
+    render(<StoriesHome />);
+    const sticker = addHeart();
+
+    fireEvent.pointerDown(sticker, { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(sticker, { pointerId: 2, pointerType: "touch", clientX: 200, clientY: 100 });
+    // swing the second finger a quarter turn; the clamp holds it at 30
+    fireEvent.pointerMove(sticker, { pointerId: 2, pointerType: "touch", clientX: 100, clientY: 200 });
+
+    expect(rotationDeg()).toBe(30);
+    expect(rotationDeg()).toBeLessThanOrEqual(30);
+  });
+
+  test("a second finger suspends the one-finger reposition", () => {
+    render(<StoriesHome />);
+    addHeart();
+    const receipt = document.querySelector("#story-receipt") as HTMLElement;
+    receipt.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 400, right: 200, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+
+    // re-query before each event: React re-renders the layer between them
+    const live = () => document.querySelector(".diy-sticker") as HTMLElement;
+    const prep = () => { const el = live(); el.setPointerCapture = vi.fn(); el.releasePointerCapture = vi.fn(); return el; };
+
+    fireEvent.pointerDown(prep(), { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(prep(), { pointerId: 2, pointerType: "touch", clientX: 140, clientY: 100 });
+    const before = live().style.left;
+
+    fireEvent.pointerMove(prep(), { pointerId: 1, pointerType: "touch", clientX: 20, clientY: 300 });
+    expect(live().style.left).toBe(before);
+
+    // lifting one finger hands control back to dragging
+    fireEvent.pointerUp(prep(), { pointerId: 2, pointerType: "touch" });
+    fireEvent.pointerMove(prep(), { pointerId: 1, pointerType: "touch", clientX: 20, clientY: 300 });
+    expect(live().style.left).toBe("10%");
+  });
+});
