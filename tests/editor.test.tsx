@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import StoriesHome from "../app/page";
 import { encodeStory } from "../app/lib/share";
+import { saveDraft } from "../app/lib/storage";
 
 /**
  * Characterisation tests: they describe what the editor does TODAY, so that
@@ -16,10 +17,20 @@ import { encodeStory } from "../app/lib/share";
 
 const receipt = () => document.querySelector("#story-receipt") as HTMLElement;
 const panel = (label: string) => document.querySelector(`.diy-panel[aria-label="${label}"]`);
-const tab = (name: RegExp) => screen.getByRole("button", { name });
+/**
+ * Scoped to the tool tab bar on purpose. screen.getByRole builds the whole
+ * accessibility tree, and this page renders enough buttons that doing it three
+ * times in one test ran for seconds and intermittently blew vitest's 5s timeout.
+ */
+const tab = (label: string) => {
+  const bar = document.querySelector('nav[aria-label="Design tools"]') as HTMLElement;
+  const found = [...bar.querySelectorAll("button")].find((b) => b.textContent?.includes(label));
+  if (!found) throw new Error(`no "${label}" tool tab`);
+  return found;
+};
 
-beforeEach(() => { window.location.hash = ""; });
-afterEach(() => { window.location.hash = ""; });
+beforeEach(() => { window.location.hash = ""; window.localStorage.clear(); });
+afterEach(() => { window.location.hash = ""; window.localStorage.clear(); });
 
 describe("tool panels", () => {
   test("content is the panel shown first", () => {
@@ -30,14 +41,14 @@ describe("tool panels", () => {
 
   test("each tab swaps in its own panel", () => {
     render(<StoriesHome />);
-    fireEvent.click(tab(/Style/i));
+    fireEvent.click(tab("Style"));
     expect(panel("Receipt style")).toBeTruthy();
     expect(panel("Receipt content")).toBeNull();
 
-    fireEvent.click(tab(/Stickers/i));
+    fireEvent.click(tab("Stickers"));
     expect(panel("Sticker tools")).toBeTruthy();
 
-    fireEvent.click(tab(/Content/i));
+    fireEvent.click(tab("Content"));
     expect(panel("Receipt content")).toBeTruthy();
   });
 });
@@ -84,7 +95,7 @@ describe("stickers", () => {
   const onCanvas = () => document.querySelectorAll(".diy-sticker");
 
   const openStickers = () => {
-    fireEvent.click(tab(/Stickers/i));
+    fireEvent.click(tab("Stickers"));
     return panel("Sticker tools") as HTMLElement;
   };
 
@@ -165,5 +176,106 @@ describe("shared story in the URL hash", () => {
     render(<StoriesHome />);
     expect(receipt().textContent).toContain("Our Friendship");
     expect(document.querySelector(".invite-banner")).toBeNull();
+  });
+});
+
+describe("autosave and undo", () => {
+  const savedStory = {
+    kind: "work" as const,
+    names: "Launch week crew",
+    note: "Somehow survived.",
+    tone: "funny" as const,
+    stickers: [],
+    items: [{ id: "i1", label: "Meetings that could be texts", quantity: "× 11" }],
+    total: "Emotionally over budget.",
+    edition: 901,
+  };
+
+  test("restores a saved draft on a bare URL, without the invite banner", async () => {
+    saveDraft(savedStory);
+    render(<StoriesHome />);
+    await waitFor(() => expect(receipt().textContent).toContain("Launch week crew"));
+    expect(receipt().textContent).toContain("Meetings that could be texts");
+    expect(document.querySelector(".invite-banner")).toBeNull();
+    // restoring is not an edit — there must be nothing to undo yet
+    expect((screen.getByRole("button", { name: /^Undo$/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  test("editing the receipt writes an autosave", async () => {
+    render(<StoriesHome />);
+    expect(window.localStorage.getItem("papermint:draft")).toBeNull();
+
+    const input = (panel("Receipt content") as HTMLElement).querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Songs on repeat" } });
+
+    await waitFor(
+      () => expect(window.localStorage.getItem("papermint:draft")).toContain("Songs on repeat"),
+      { timeout: 3000 },
+    );
+  });
+
+  test("an autosave never carries photo data", async () => {
+    render(<StoriesHome />);
+    const input = (panel("Receipt content") as HTMLElement).querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Songs on repeat" } });
+    await waitFor(() => expect(window.localStorage.getItem("papermint:draft")).toBeTruthy(), { timeout: 3000 });
+    expect(window.localStorage.getItem("papermint:draft")).not.toContain("data:image");
+  });
+
+  test("a shared link beats a saved draft", async () => {
+    saveDraft(savedStory);
+    window.location.hash = `#s=${encodeStory({ ...savedStory, names: "From the link", edition: 111 })}`;
+    render(<StoriesHome />);
+    await waitFor(() => expect(receipt().textContent).toContain("From the link"));
+    expect(receipt().textContent).not.toContain("Launch week crew");
+    expect(document.querySelector(".invite-banner")).toBeTruthy();
+  });
+
+  test("viewing a shared story leaves this device's draft untouched", async () => {
+    saveDraft(savedStory);
+    window.location.hash = `#s=${encodeStory({ ...savedStory, names: "SOMEONE ELSE", edition: 5 })}`;
+    render(<StoriesHome />);
+    await waitFor(() => expect(receipt().textContent).toContain("SOMEONE ELSE"));
+
+    // well past the 600ms autosave window
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const stored = JSON.parse(window.localStorage.getItem("papermint:draft") as string);
+    expect(stored.story.names).toBe(savedStory.names);
+    expect(stored.story.names).not.toBe("SOMEONE ELSE");
+  });
+
+  test("ctrl+z reverses an edit once it has settled", async () => {
+    render(<StoriesHome />);
+    const input = (panel("Receipt content") as HTMLElement).querySelector("input") as HTMLInputElement;
+    const original = input.value;
+
+    fireEvent.change(input, { target: { value: "Songs on repeat" } });
+    expect(receipt().textContent).toContain("Songs on repeat");
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(receipt().textContent).toContain(original));
+    expect(receipt().textContent).not.toContain("Songs on repeat");
+  });
+
+  test("shift+ctrl+z puts the edit back", async () => {
+    render(<StoriesHome />);
+    const input = (panel("Receipt content") as HTMLElement).querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Songs on repeat" } });
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await waitFor(() => expect(receipt().textContent).not.toContain("Songs on repeat"));
+
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(receipt().textContent).toContain("Songs on repeat"));
+  });
+
+  test("ctrl+z inside a text field is left to the browser", async () => {
+    render(<StoriesHome />);
+    const input = (panel("Receipt content") as HTMLElement).querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Songs on repeat" } });
+
+    fireEvent.keyDown(input, { key: "z", ctrlKey: true });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(receipt().textContent).toContain("Songs on repeat");
   });
 });

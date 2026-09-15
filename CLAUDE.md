@@ -72,7 +72,8 @@ The local development server normally runs at `http://localhost:3000`.
   `#s=` share payload.
 - `app/components/` — `ContentPanel`, `StylePanel`, `PhotoPanel`, `StickerPanel`,
   `ReceiptCanvas`, `AddLineModal`, `ShareModal`.
-- `app/lib/` — `share.ts` (`#s=` encode/decode), `export.ts` (Canvas 2D PNG), `random.ts`.
+- `app/lib/` — `share.ts` (`#s=` encode/decode), `export.ts` (Canvas 2D PNG),
+  `storage.ts` (versioned autosave), `random.ts`.
 - `app/data/story.ts` — copy and palettes. `app/types.ts` — shared types.
 - `app/globals.css` — Global styles for both the DIY editor and the legacy studio.
 - `app/layout.tsx` — App metadata and shared document layout.
@@ -107,7 +108,11 @@ The local development server normally runs at `http://localhost:3000`.
 
 1. ~~Split `app/page.tsx`~~ — done. It is now composition only; state lives in
    `app/hooks/`, markup in `app/components/`.
-2. Add undo/redo and local autosave using versioned `localStorage` data.
+2. ~~Add undo/redo and local autosave~~ — done. `app/lib/storage.ts` holds a
+   versioned draft (`papermint:draft`, v1); `app/hooks/useDraftHistory.ts` gives
+   undo/redo over the `SharedStory` snapshot. Two rules worth keeping: the photo is
+   never written to storage, and autosave pauses while a shared story is on screen
+   so a visitor's link cannot overwrite the draft on this device.
 3. Improve mobile touch dragging, sticker gestures, and photo crop controls.
 4. Add reusable receipt templates and user-created template saving.
 5. Improve WYSIWYG export fidelity and add export sizes for Stories, Posts, and downloadable receipts.

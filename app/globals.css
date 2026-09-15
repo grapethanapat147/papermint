@@ -906,3 +906,18 @@ textarea { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .diy-panel { animation: none; }
 }
+
+/* Undo/redo above the canvas. New classes only — this file also serves /studio. */
+.canvas-topline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.canvas-history { display: flex; gap: 4px; }
+.canvas-history button {
+  min-width: 34px; min-height: 34px; padding: 0 8px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--story-accent) 28%, transparent);
+  background: rgba(255, 253, 248, .72); color: var(--story-accent);
+  font-size: 15px; line-height: 1; cursor: pointer;
+  transition: background .15s ease, opacity .15s ease;
+}
+.canvas-history button:hover:not(:disabled) { background: color-mix(in srgb, var(--story-accent) 12%, transparent); }
+.canvas-history button:disabled { opacity: .35; cursor: default; }
+.canvas-history button:focus-visible { outline: 2px solid var(--story-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .canvas-history button { transition: none; } }

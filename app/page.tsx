@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ContentPanel } from "./components/ContentPanel";
 import { PhotoPanel } from "./components/PhotoPanel";
 import { AddLineModal } from "./components/AddLineModal";
@@ -10,9 +10,11 @@ import { StickerPanel } from "./components/StickerPanel";
 import { StylePanel } from "./components/StylePanel";
 import { usePhotoEditor } from "./hooks/usePhotoEditor";
 import { useStickers } from "./hooks/useStickers";
+import { useDraftHistory } from "./hooks/useDraftHistory";
 import { useStoryDraft } from "./hooks/useStoryDraft";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
+import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
 
 export default function StoriesHome() {
@@ -41,17 +43,62 @@ export default function StoriesHome() {
 
   const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition };
 
-  // A URL fragment is never sent to the server, so a shared story cannot be known
-  // during SSR. Seeding this state in the initializers would desync hydration, which
-  // makes applying it once after mount the only correct option here.
+  /** Restores a snapshot without claiming it came from someone else's link. */
+  const applyStory = useCallback((snapshot: SharedStory) => {
+    hydrateDraft(snapshot, false);
+    hydrateStickers(snapshot.stickers ?? []);
+  }, [hydrateDraft, hydrateStickers]);
+
+  const { undo, redo, canUndo, canRedo, resetHistory } = useDraftHistory(story, applyStory);
+
+  // A URL fragment is never sent to the server, so neither a shared story nor a
+  // saved draft can be known during SSR. Seeding this state in the initializers
+  // would desync hydration, so both are applied once after mount.
+  //
+  // A shared link wins over a saved draft: arriving on someone's link should show
+  // their receipt, not yesterday's work. The saved draft is not cleared, so
+  // navigating back to a bare URL brings it back.
   useEffect(() => {
     const match = window.location.hash.match(/^#s=([^&]+)/);
-    if (!match) return;
-    const shared = decodeStory(match[1]);
-    if (!shared) return;
-    hydrateDraft(shared);
-    hydrateStickers(shared.stickers ?? []);
-  }, [hydrateDraft, hydrateStickers]);
+    const shared = match ? decodeStory(match[1]) : null;
+    if (shared) {
+      resetHistory();
+      hydrateDraft(shared, true);
+      hydrateStickers(shared.stickers ?? []);
+      return;
+    }
+    const saved = loadDraft();
+    if (saved) {
+      resetHistory();
+      applyStory(saved);
+    }
+  }, [applyStory, hydrateDraft, hydrateStickers, resetHistory]);
+
+  // Autosave, coalesced so a burst of typing writes once. Photos are excluded by
+  // the SharedStory shape itself, which also keeps this well inside the quota.
+  //
+  // Paused while a shared story is on screen: someone else's receipt must not
+  // overwrite the draft on this device. A shared story is always recoverable from
+  // its own link, and remixing clears loadedFromShare, which resumes saving.
+  const storyKey = JSON.stringify(story);
+  useEffect(() => {
+    if (loadedFromShare) return;
+    const timer = window.setTimeout(() => { saveDraft(JSON.parse(storyKey) as SharedStory); }, 600);
+    return () => window.clearTimeout(timer);
+  }, [storyKey, loadedFromShare]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      const target = event.target as HTMLElement | null;
+      // Let inputs keep their own native undo stack.
+      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      event.preventDefault();
+      if (event.shiftKey) redo(); else undo();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, redo]);
 
   useEffect(() => {
     if (addOpen) { addInputRef.current?.focus(); }
@@ -130,7 +177,7 @@ export default function StoriesHome() {
           <small className="privacy-note">DIY changes stay on this device. Shared links carry the receipt design, but not uploaded photos.</small>
         </div>
 
-        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={setActiveTool} openShare={() => setShareOpen(true)} />
+        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={setActiveTool} openShare={() => setShareOpen(true)} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
       </section>
 
       {addOpen && <AddLineModal closeModal={() => setAddOpen(false)} addInputRef={addInputRef} newLine={newLine} setNewLine={setNewLine} addLineItem={addLineItem} />}

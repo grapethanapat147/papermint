@@ -36,14 +36,18 @@ export function useStoryDraft() {
 
   const activeKind = useMemo(() => kinds.find((entry) => entry.id === kind) ?? kinds[0], [kind]);
 
-  /** Applies a decoded `#s=` payload. Stable, so a mount effect can depend on it. */
-  const hydrateDraft = useCallback((shared: SharedStory) => {
+  /**
+   * Applies a serialised draft. Stable, so effects can depend on it.
+   * `fromShare` drives the invite banner, so restoring an autosave or stepping
+   * through undo must pass false.
+   */
+  const hydrateDraft = useCallback((shared: SharedStory, fromShare = true) => {
     setKind(shared.kind); setNames(shared.names); setNote(shared.note); setTone(shared.tone);
     setDecoration(shared.decoration ?? "classic"); setAccent(shared.accent ?? "coral");
     setFontStyle(shared.fontStyle ?? "editorial"); setPaperTone(shared.paperTone ?? "cream");
     setEdgeStyle(shared.edgeStyle ?? "torn"); setTextScale(shared.textScale ?? 1.08);
     setItems(shared.items); setTotal(shared.total); setEdition(shared.edition);
-    setLoadedFromShare(true);
+    setLoadedFromShare(fromShare);
   }, []);
 
   function chooseKind(next: StoryKind) {
