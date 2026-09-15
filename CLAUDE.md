@@ -46,8 +46,16 @@ test runner — no test framework is installed, and Node strips the TypeScript i
   shape, and the data invariants (every kind has copy for every tone, accents all
   have a hex colour, filter ids unique).
 
-Neither file can reach the editor's interactions. PNG export, sticker dragging,
-photo upload and the share modal still have to be checked in a browser.
+`npm run test:unit` runs the vitest specs (`tests/**/*.test.tsx`) in jsdom via
+`vitest.config.ts` — kept separate from `vite.config.ts`, whose Cloudflare and RSC
+plugins do not work under jsdom.
+
+- `tests/editor.test.tsx` — characterisation tests for the editor: tab switching,
+  kind selection, line-item add/edit/remove, sticker add and selection, and
+  hydrating a shared draft from the `#s=` hash.
+
+jsdom has no canvas, so PNG export stays a browser check, as do sticker dragging,
+photo upload and the share modal.
 
 The local development server normally runs at `http://localhost:3000`.
 
