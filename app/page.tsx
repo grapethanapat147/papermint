@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { kinds, storyLines, totals, stickerAssets, photoFilters } from "./data/story";
-import { makeId, randomStickerTilt } from "./lib/random";
+import { makeId } from "./lib/random";
 import { usePhotoEditor } from "./hooks/usePhotoEditor";
+import { useStickers } from "./hooks/useStickers";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import type {
-  Accent, Decoration, DiySticker, EdgeStyle, FontStyle, PaperTone,
+  Accent, Decoration, EdgeStyle, FontStyle, PaperTone,
   SharedStory, StoryItem, StoryKind, Tone, ToolTab,
 } from "./types";
 
@@ -23,11 +24,7 @@ export default function StoriesHome() {
   const [paperTone, setPaperTone] = useState<PaperTone>("cream");
   const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>("torn");
   const [textScale, setTextScale] = useState(1.08);
-  const [stickers, setStickers] = useState<DiySticker[]>([]);
-  const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
-  const [draggingStickerId, setDraggingStickerId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [customStickerText, setCustomStickerText] = useState("");
   const [items, setItems] = useState<StoryItem[]>(() => storyLines.friendship.warm.map(([label, quantity]) => ({ id: makeId(), label, quantity })));
   const [total, setTotal] = useState("Still adding up.");
   const [edition, setEdition] = useState(824);
@@ -46,8 +43,13 @@ export default function StoriesHome() {
   const addInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
+  const {
+    stickers, selectedStickerId, draggingStickerId, customStickerText, selectedSticker,
+    setSelectedStickerId, setDraggingStickerId, setCustomStickerText, hydrateStickers,
+    addSticker, updateSelectedSticker, removeSelectedSticker, positionSticker, handleReceiptDrop,
+  } = useStickers(receiptRef, () => setActiveTool("stickers"));
+
   const activeKind = useMemo(() => kinds.find((entry) => entry.id === kind) ?? kinds[0], [kind]);
-  const selectedSticker = stickers.find((sticker) => sticker.id === selectedStickerId) ?? null;
   const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition };
 
   // A URL fragment is never sent to the server, so a shared story cannot be known
@@ -62,9 +64,9 @@ export default function StoriesHome() {
     setKind(shared.kind); setNames(shared.names); setNote(shared.note); setTone(shared.tone);
     setDecoration(shared.decoration ?? "classic"); setAccent(shared.accent ?? "coral");
     setFontStyle(shared.fontStyle ?? "editorial"); setPaperTone(shared.paperTone ?? "cream"); setEdgeStyle(shared.edgeStyle ?? "torn");
-    setTextScale(shared.textScale ?? 1.08); setStickers(shared.stickers ?? []);
+    setTextScale(shared.textScale ?? 1.08); hydrateStickers(shared.stickers ?? []);
     setItems(shared.items); setTotal(shared.total); setEdition(shared.edition); setLoadedFromShare(true);
-  }, []);
+  }, [hydrateStickers]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -117,38 +119,10 @@ export default function StoriesHome() {
     setDraggedItemId(null);
   }
 
-  function addSticker(symbol: string, label: string, x = 50, y = 32) {
-    const sticker = { id: makeId(), symbol, label, x, y, size: symbol.length > 3 ? 14 : 26, rotation: randomStickerTilt() };
-    setStickers((current) => [...current, sticker]); setSelectedStickerId(sticker.id); setActiveTool("stickers");
-  }
 
-  function updateSelectedSticker(patch: Partial<DiySticker>) {
-    if (!selectedStickerId) return;
-    setStickers((current) => current.map((sticker) => sticker.id === selectedStickerId ? { ...sticker, ...patch } : sticker));
-  }
 
-  function removeSelectedSticker() {
-    if (!selectedStickerId) return;
-    setStickers((current) => current.filter((sticker) => sticker.id !== selectedStickerId)); setSelectedStickerId(null);
-  }
 
-  function positionSticker(id: string, clientX: number, clientY: number) {
-    const receipt = receiptRef.current; if (!receipt) return;
-    const bounds = receipt.getBoundingClientRect();
-    const x = Math.max(4, Math.min(96, ((clientX - bounds.left) / bounds.width) * 100));
-    const y = Math.max(4, Math.min(96, ((clientY - bounds.top) / bounds.height) * 100));
-    setStickers((current) => current.map((sticker) => sticker.id === id ? { ...sticker, x, y } : sticker));
-  }
 
-  function handleReceiptDrop(event: ReactDragEvent<HTMLElement>) {
-    event.preventDefault();
-    const symbol = event.dataTransfer.getData("application/x-papermint-symbol");
-    const label = event.dataTransfer.getData("application/x-papermint-label") || symbol;
-    if (!symbol) return;
-    const receipt = receiptRef.current; if (!receipt) return;
-    const bounds = receipt.getBoundingClientRect();
-    addSticker(symbol, label, ((event.clientX - bounds.left) / bounds.width) * 100, ((event.clientY - bounds.top) / bounds.height) * 100);
-  }
 
   function buildShareUrl() {
     return `${window.location.origin}${window.location.pathname}#s=${encodeStory(story)}`;
