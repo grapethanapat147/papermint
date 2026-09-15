@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { kinds, stickerAssets, photoFilters } from "./data/story";
+import { ContentPanel } from "./components/ContentPanel";
+import { PhotoPanel } from "./components/PhotoPanel";
+import { StickerPanel } from "./components/StickerPanel";
+import { StylePanel } from "./components/StylePanel";
 import { usePhotoEditor } from "./hooks/usePhotoEditor";
 import { useStickers } from "./hooks/useStickers";
 import { useStoryDraft } from "./hooks/useStoryDraft";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
-import type {
-  Accent, Decoration, EdgeStyle, FontStyle, PaperTone, SharedStory, Tone, ToolTab,
-} from "./types";
+import type { SharedStory, ToolTab } from "./types";
 
 export default function StoriesHome() {
   const {
@@ -24,12 +25,8 @@ export default function StoriesHome() {
   const [addOpen, setAddOpen] = useState(false);
   const [newLine, setNewLine] = useState("");
   const [copied, setCopied] = useState(false);
-  const {
-    photoData, photoName, photoFilter, photoBrightness, photoContrast, photoSaturation,
-    photoZoom, photoError, photoFilterStyle, cameraInputRef, uploadInputRef,
-    setPhotoFilter, setPhotoBrightness, setPhotoContrast, setPhotoSaturation, setPhotoZoom, setPhotoError,
-    handlePhotoFile, removePhoto,
-  } = usePhotoEditor();
+  const photo = usePhotoEditor();
+  const { photoData, photoZoom, photoFilterStyle, setPhotoError } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
@@ -120,60 +117,13 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <section className="diy-panel" aria-label="Receipt content">
-            <div className="diy-panel-heading"><div><strong>Build your story</strong><small>Drag line items to reorder them.</small></div><button type="button" disabled={isGenerating} onClick={() => generateStory()}>{isGenerating ? "Printing…" : "↻ Generate"}</button></div>
-            <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
-            <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
-            <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-            <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem("A new memory")}>＋ Add</button></div>
-            <div className="diy-item-list">{items.map((item) => <div key={item.id} className="diy-item-row" draggable onDragStart={() => setDraggedItemId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderLineItem(item.id)}><span className="drag-grip" aria-hidden="true">⠿</span><input aria-label="Line item" value={item.label} onChange={(event) => updateLineItem(item.id,"label",event.target.value)} /><input aria-label="Quantity" value={item.quantity} onChange={(event) => updateLineItem(item.id,"quantity",event.target.value)} /><button type="button" aria-label="Remove line item" onClick={() => removeLineItem(item.id)}>×</button></div>)}</div>
-          </section>}
+          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} setDraggedItemId={setDraggedItemId} reorderLineItem={reorderLineItem} />}
 
-          {activeTool === "style" && <section className="diy-panel" aria-label="Receipt style">
-            <div className="diy-panel-heading"><div><strong>Make it look yours</strong><small>Every option updates the canvas live.</small></div></div>
-            <div className="diy-option"><span>TEMPLATE</span><div className="diy-choice-grid four">{(["classic","botanical","mono","playful"] as Decoration[]).map((entry) => <button type="button" key={entry} className={decoration === entry ? "active" : ""} onClick={() => setDecoration(entry)}><i>{entry === "classic" ? "P" : entry === "botanical" ? "❦" : entry === "mono" ? "M" : "☺"}</i><b>{entry}</b></button>)}</div></div>
-            <div className="diy-option"><span>PAPER</span><div className="diy-choice-grid four paper-choices">{(["cream","white","blush","sage"] as PaperTone[]).map((entry) => <button type="button" key={entry} className={`${entry} ${paperTone === entry ? "active" : ""}`} onClick={() => setPaperTone(entry)}><i /><b>{entry}</b></button>)}</div></div>
-            <div className="diy-option"><span>FONT</span><div className="diy-segments">{(["editorial","rounded","mono"] as FontStyle[]).map((entry) => <button type="button" key={entry} className={fontStyle === entry ? "active" : ""} onClick={() => setFontStyle(entry)}>{entry}</button>)}</div></div>
-            <div className="diy-option"><span>EDGE</span><div className="diy-segments">{(["torn","straight","rounded"] as EdgeStyle[]).map((entry) => <button type="button" key={entry} className={edgeStyle === entry ? "active" : ""} onClick={() => setEdgeStyle(entry)}>{entry}</button>)}</div></div>
-            <div className="diy-option"><span>ACCENT COLOR</span><div className="designer-colors diy-colors">{(["coral","sage","ink","mustard","lavender","blue"] as Accent[]).map((entry) => <button type="button" key={entry} className={`${entry} ${accent === entry ? "active" : ""}`} aria-label={`${entry} accent`} onClick={() => setAccent(entry)} />)}</div></div>
-            <div className="diy-option"><span>STORY MOOD</span><div className="diy-segments mood-segments">{(["warm","funny","honest"] as Tone[]).map((entry) => <button type="button" key={entry} className={tone === entry ? "active" : ""} onClick={() => generateStory(entry)}>{entry}</button>)}</div></div>
-            <label className="diy-range"><span>TEXT SIZE <b>{Math.round(textScale * 100)}%</b></span><input type="range" min="0.9" max="1.35" step="0.05" value={textScale} onChange={(event) => setTextScale(Number(event.target.value))} /></label>
-          </section>}
+          {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 
-          {activeTool === "photo" && <section className="photo-studio diy-panel" aria-labelledby="photo-studio-title">
-            <div className="diy-panel-heading"><div><strong id="photo-studio-title">Add & edit a photo</strong><small>Camera, upload, filters and adjustments.</small></div><span className="device-pill">DEVICE-ONLY</span></div>
-            <input ref={cameraInputRef} className="photo-file-input" type="file" accept="image/*" capture="environment" onChange={(event) => handlePhotoFile(event.target.files?.[0])} />
-            <input ref={uploadInputRef} className="photo-file-input" type="file" accept="image/*" onChange={(event) => handlePhotoFile(event.target.files?.[0])} />
-            {!photoData ? (
-              <div className="photo-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); handlePhotoFile(event.dataTransfer.files?.[0]); }}>
-                <span className="photo-drop-icon">◎</span>
-                <div><strong>Add the moment behind the story</strong><small>Take a new photo or choose one from your device.</small></div>
-                <div className="photo-source-actions"><button type="button" onClick={() => cameraInputRef.current?.click()}>◉ Camera</button><button type="button" onClick={() => uploadInputRef.current?.click()}>↑ Upload</button></div>
-              </div>
-            ) : (
-              <div className="photo-editor">
-                <div className="photo-editor-thumb"><img src={photoData} alt="Selected story moment" style={{ filter: photoFilterStyle, transform: `scale(${photoZoom})` }} /><button type="button" onClick={removePhoto} aria-label="Remove photo">×</button><span>{photoName}</span></div>
-                <div className="photo-filter-list" aria-label="Photo filters">
-                  {photoFilters.map((entry) => <button type="button" key={entry.id} className={photoFilter === entry.id ? "active" : ""} aria-pressed={photoFilter === entry.id} onClick={() => setPhotoFilter(entry.id)}><i style={{ backgroundImage: `url(${photoData})`, filter: `${entry.css} brightness(${photoBrightness}%) contrast(${photoContrast}%) saturate(${photoSaturation}%)` }} /><span>{entry.label}</span></button>)}
-                </div>
-                <div className="photo-adjustments">
-                  <label><span>Brightness <b>{photoBrightness}</b></span><input type="range" min="70" max="130" value={photoBrightness} onChange={(event) => setPhotoBrightness(Number(event.target.value))} /></label>
-                  <label><span>Contrast <b>{photoContrast}</b></span><input type="range" min="70" max="140" value={photoContrast} onChange={(event) => setPhotoContrast(Number(event.target.value))} /></label>
-                  <label><span>Color <b>{photoSaturation}</b></span><input type="range" min="0" max="160" value={photoSaturation} onChange={(event) => setPhotoSaturation(Number(event.target.value))} /></label>
-                  <label><span>Zoom <b>{photoZoom.toFixed(1)}×</b></span><input type="range" min="1" max="1.8" step="0.1" value={photoZoom} onChange={(event) => setPhotoZoom(Number(event.target.value))} /></label>
-                </div>
-                <div className="photo-replace-actions"><button type="button" onClick={() => cameraInputRef.current?.click()}>Retake</button><button type="button" onClick={() => uploadInputRef.current?.click()}>Replace photo</button></div>
-              </div>
-            )}
-            {photoError && <p className="photo-error" role="alert">{photoError}</p>}
-          </section>}
+          {activeTool === "photo" && <PhotoPanel photo={photo} />}
 
-          {activeTool === "stickers" && <section className="diy-panel" aria-label="Sticker tools">
-            <div className="diy-panel-heading"><div><strong>Drag something fun</strong><small>Drag onto the receipt, or click to add.</small></div><span className="device-pill">{stickers.length} ADDED</span></div>
-            <div className="sticker-palette">{stickerAssets.map((asset) => <button type="button" draggable key={asset.label} onDragStart={(event) => { event.dataTransfer.setData("application/x-papermint-symbol",asset.symbol); event.dataTransfer.setData("application/x-papermint-label",asset.label); }} onClick={() => addSticker(asset.symbol,asset.label)}><span>{asset.symbol}</span><b>{asset.label}</b><small>Drag me</small></button>)}</div>
-            <div className="custom-sticker"><input maxLength={12} value={customStickerText} onChange={(event) => setCustomStickerText(event.target.value)} placeholder="Your own text" /><button type="button" onClick={() => { if (customStickerText.trim()) { addSticker(customStickerText.trim().toUpperCase(),"Custom text"); setCustomStickerText(""); } }}>＋ Add text</button></div>
-            {selectedSticker ? <div className="sticker-inspector"><div><strong>Edit selected sticker</strong><small>{selectedSticker.label}</small></div><label><span>SIZE <b>{selectedSticker.size}px</b></span><input type="range" min="12" max="48" value={selectedSticker.size} onChange={(event) => updateSelectedSticker({size:Number(event.target.value)})} /></label><label><span>ROTATE <b>{selectedSticker.rotation}°</b></span><input type="range" min="-30" max="30" value={selectedSticker.rotation} onChange={(event) => updateSelectedSticker({rotation:Number(event.target.value)})} /></label><button type="button" onClick={removeSelectedSticker}>Remove sticker</button></div> : <div className="sticker-empty"><span>↗</span><p>Select a sticker on the receipt to resize or rotate it.</p></div>}
-          </section>}
+          {activeTool === "stickers" && <StickerPanel stickers={stickers} selectedSticker={selectedSticker} customStickerText={customStickerText} setCustomStickerText={setCustomStickerText} addSticker={addSticker} updateSelectedSticker={updateSelectedSticker} removeSelectedSticker={removeSelectedSticker} />}
           <small className="privacy-note">DIY changes stay on this device. Shared links carry the receipt design, but not uploaded photos.</small>
         </div>
 
