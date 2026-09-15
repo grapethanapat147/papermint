@@ -1,39 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { kinds, storyLines, totals, stickerAssets, photoFilters } from "./data/story";
-import { makeId } from "./lib/random";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { kinds, stickerAssets, photoFilters } from "./data/story";
 import { usePhotoEditor } from "./hooks/usePhotoEditor";
 import { useStickers } from "./hooks/useStickers";
+import { useStoryDraft } from "./hooks/useStoryDraft";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import type {
-  Accent, Decoration, EdgeStyle, FontStyle, PaperTone,
-  SharedStory, StoryItem, StoryKind, Tone, ToolTab,
+  Accent, Decoration, EdgeStyle, FontStyle, PaperTone, SharedStory, Tone, ToolTab,
 } from "./types";
 
 export default function StoriesHome() {
-  const [kind, setKind] = useState<StoryKind>("friendship");
-  const [names, setNames] = useState("Mook & Ploy");
-  const [note, setNote] = useState("We survived growing up without growing apart.");
-  const [tone, setTone] = useState<Tone>("warm");
-  const [decoration, setDecoration] = useState<Decoration>("classic");
-  const [accent, setAccent] = useState<Accent>("coral");
+  const {
+    kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
+    items, total, edition, isGenerating, loadedFromShare, activeKind,
+    setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
+    setTextScale, setDraggedItemId,
+    hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem, reorderLineItem,
+  } = useStoryDraft();
   const [activeTool, setActiveTool] = useState<ToolTab>("content");
-  const [fontStyle, setFontStyle] = useState<FontStyle>("editorial");
-  const [paperTone, setPaperTone] = useState<PaperTone>("cream");
-  const [edgeStyle, setEdgeStyle] = useState<EdgeStyle>("torn");
-  const [textScale, setTextScale] = useState(1.08);
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [items, setItems] = useState<StoryItem[]>(() => storyLines.friendship.warm.map(([label, quantity]) => ({ id: makeId(), label, quantity })));
-  const [total, setTotal] = useState("Still adding up.");
-  const [edition, setEdition] = useState(824);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [newLine, setNewLine] = useState("");
   const [copied, setCopied] = useState(false);
-  const [loadedFromShare, setLoadedFromShare] = useState(false);
   const {
     photoData, photoName, photoFilter, photoBrightness, photoContrast, photoSaturation,
     photoZoom, photoError, photoFilterStyle, cameraInputRef, uploadInputRef,
@@ -49,75 +39,34 @@ export default function StoriesHome() {
     addSticker, updateSelectedSticker, removeSelectedSticker, positionSticker, handleReceiptDrop,
   } = useStickers(receiptRef, () => setActiveTool("stickers"));
 
-  const activeKind = useMemo(() => kinds.find((entry) => entry.id === kind) ?? kinds[0], [kind]);
   const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition };
 
   // A URL fragment is never sent to the server, so a shared story cannot be known
   // during SSR. Seeding this state in the initializers would desync hydration, which
   // makes applying it once after mount the only correct option here.
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const match = window.location.hash.match(/^#s=([^&]+)/);
     if (!match) return;
     const shared = decodeStory(match[1]);
     if (!shared) return;
-    setKind(shared.kind); setNames(shared.names); setNote(shared.note); setTone(shared.tone);
-    setDecoration(shared.decoration ?? "classic"); setAccent(shared.accent ?? "coral");
-    setFontStyle(shared.fontStyle ?? "editorial"); setPaperTone(shared.paperTone ?? "cream"); setEdgeStyle(shared.edgeStyle ?? "torn");
-    setTextScale(shared.textScale ?? 1.08); hydrateStickers(shared.stickers ?? []);
-    setItems(shared.items); setTotal(shared.total); setEdition(shared.edition); setLoadedFromShare(true);
-  }, [hydrateStickers]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    hydrateDraft(shared);
+    hydrateStickers(shared.stickers ?? []);
+  }, [hydrateDraft, hydrateStickers]);
 
   useEffect(() => {
     if (addOpen) { addInputRef.current?.focus(); }
   }, [addOpen]);
 
-  function chooseKind(next: StoryKind) {
-    const selected = kinds.find((entry) => entry.id === next);
-    setKind(next);
-    if (selected) setNames(selected.prompt);
-  }
 
-  function generateStory(nextTone = tone) {
-    setIsGenerating(true);
-    window.setTimeout(() => {
-      const lines = storyLines[kind][nextTone];
-      setItems(lines.map(([label, quantity]) => ({ id: makeId(), label, quantity })));
-      const choices = totals[nextTone];
-      setTotal(choices[(edition + kind.length + nextTone.length) % choices.length]);
-      setEdition((current) => current + 1);
-      setTone(nextTone);
-      setLoadedFromShare(false);
-      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-      setIsGenerating(false);
-    }, 650);
-  }
 
   function addLineItem() {
     if (!newLine.trim()) return;
-    setItems((current) => [...current, { id: makeId(), label: newLine.trim(), quantity: "× +1" }]);
+    appendLineItem(newLine.trim());
     setNewLine(""); setAddOpen(false);
   }
 
-  function updateLineItem(id: string, key: "label" | "quantity", value: string) {
-    setItems((current) => current.map((item) => item.id === id ? { ...item, [key]: value } : item));
-  }
 
-  function removeLineItem(id: string) {
-    setItems((current) => current.length > 1 ? current.filter((item) => item.id !== id) : current);
-  }
 
-  function reorderLineItem(targetId: string) {
-    if (!draggedItemId || draggedItemId === targetId) return;
-    setItems((current) => {
-      const from = current.findIndex((item) => item.id === draggedItemId);
-      const to = current.findIndex((item) => item.id === targetId);
-      if (from < 0 || to < 0) return current;
-      const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next;
-    });
-    setDraggedItemId(null);
-  }
 
 
 
@@ -176,7 +125,7 @@ export default function StoriesHome() {
             <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
             <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
             <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-            <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => setItems((current) => [...current,{id:makeId(),label:"A new memory",quantity:"× +1"}])}>＋ Add</button></div>
+            <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem("A new memory")}>＋ Add</button></div>
             <div className="diy-item-list">{items.map((item) => <div key={item.id} className="diy-item-row" draggable onDragStart={() => setDraggedItemId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderLineItem(item.id)}><span className="drag-grip" aria-hidden="true">⠿</span><input aria-label="Line item" value={item.label} onChange={(event) => updateLineItem(item.id,"label",event.target.value)} /><input aria-label="Quantity" value={item.quantity} onChange={(event) => updateLineItem(item.id,"quantity",event.target.value)} /><button type="button" aria-label="Remove line item" onClick={() => removeLineItem(item.id)}>×</button></div>)}</div>
           </section>}
 
