@@ -1,4 +1,4 @@
-import type { CSSProperties, RefObject } from "react";
+import { useRef, type CSSProperties, type RefObject } from "react";
 
 import type { usePhotoEditor } from "../hooks/usePhotoEditor";
 import type { useStickers } from "../hooks/useStickers";
@@ -45,7 +45,12 @@ export function ReceiptCanvas({
     stickers, selectedStickerId, draggingStickerId,
     setSelectedStickerId, setDraggingStickerId, positionSticker, handleReceiptDrop,
   } = stickerLayer;
-  const { photoData, photoFilterStyle, photoZoom } = photo;
+  const { photoData, photoFilterStyle, photoTransform, nudgePhotoOffset } = photo;
+
+  // Dragging the photo repositions the crop. A drag must not also count as the
+  // click that opens the photo tool, so movement past a small threshold
+  // swallows the click that follows.
+  const photoDrag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   return (
     <section className={`story-stage webapp-preview diy-canvas tone-${tone} decor-${decoration} accent-${accent} paper-${paperTone} font-${fontStyle} edge-${edgeStyle} ${photoData ? "has-photo" : ""} ${isGenerating ? "printing" : ""}`} id="create" aria-label="Interactive receipt canvas">
@@ -68,7 +73,29 @@ export function ReceiptCanvas({
           {/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
           <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{names || "Your story"}</p>
           <div className="life-date"><span>ISSUED WITH FEELINGS</span><span>24 AUG 2026</span></div>
-          {photoData && <div className="life-photo receipt-click-target" onClick={() => setActiveTool("photo")}><img src={photoData} alt="Story moment" style={{ filter: photoFilterStyle, transform: `scale(${photoZoom})` }} /><span>THE MOMENT, AS IT FELT</span></div>}
+          {photoData && <div
+            className="life-photo receipt-click-target"
+            onClick={() => { if (photoDrag.current?.moved) { photoDrag.current = null; return; } setActiveTool("photo"); }}
+            onPointerDown={(event) => {
+              photoDrag.current = { x: event.clientX, y: event.clientY, moved: false };
+              capturePointer(event.currentTarget, event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const drag = photoDrag.current;
+              if (!drag) return;
+              const box = event.currentTarget.getBoundingClientRect();
+              if (!box.width || !box.height) return;
+              const dx = event.clientX - drag.x;
+              const dy = event.clientY - drag.y;
+              if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+              drag.moved = true;
+              drag.x = event.clientX;
+              drag.y = event.clientY;
+              nudgePhotoOffset((dx / box.width) * 100, (dy / box.height) * 100);
+            }}
+            onPointerUp={(event) => { releasePointer(event.currentTarget, event.pointerId); }}
+            onPointerCancel={() => { photoDrag.current = null; }}
+          ><img src={photoData} alt="Story moment" draggable={false} style={{ filter: photoFilterStyle, transform: photoTransform }} /><span>THE MOMENT, AS IT FELT</span></div>}
           <div className="life-items receipt-click-target" onClick={() => setActiveTool("content")}>{items.map((item) => <div key={item.id} draggable onDragStart={(event) => { event.stopPropagation(); setDraggedItemId(item.id); }} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); reorderLineItem(item.id); }}><span><i>⠿</i>{item.label}</span><b>{item.quantity}</b></div>)}</div>
           <div className="life-total receipt-click-target" onClick={() => setActiveTool("style")}><span>TOTAL</span><strong>{total}</strong></div>
           <div className="life-footer"><span className="life-stamp receipt-click-target" onClick={() => setActiveTool("stickers")}>STILL<br />ADDING<br />UP</span><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{note || "Not perfect. Still ours."}</p></div>

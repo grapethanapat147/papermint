@@ -17,6 +17,8 @@ export type StorySnapshot = {
   stickers: DiySticker[];
   photoData: string | null;
   photoZoom: number;
+  photoOffsetX: number;
+  photoOffsetY: number;
   photoFilterStyle: string;
 };
 
@@ -31,7 +33,7 @@ export async function downloadStory(
 ) {
   const {
     kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-    activeKind, names, total, items, stickers, photoData, photoZoom, photoFilterStyle,
+    activeKind, names, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
   } = snapshot;
   const canvas = document.createElement("canvas");
   canvas.width = 1080; canvas.height = 1920;
@@ -55,7 +57,11 @@ export async function downloadStory(
     const scale = Math.max(frameW / image.naturalWidth, frameH / image.naturalHeight) * photoZoom;
     const drawW = image.naturalWidth * scale, drawH = image.naturalHeight * scale;
     context.save(); context.beginPath(); context.rect(frameX, frameY, frameW, frameH); context.clip(); context.filter = photoFilterStyle;
-    context.drawImage(image, frameX + (frameW - drawW) / 2, frameY + (frameH - drawH) / 2, drawW, drawH); context.restore();
+    // Mirrors the preview's `scale() translate(%)`: the shift is a percentage of
+    // the drawn photo, so both surfaces crop to the same place.
+    const shiftX = (photoOffsetX / 100) * drawW;
+    const shiftY = (photoOffsetY / 100) * drawH;
+    context.drawImage(image, frameX + (frameW - drawW) / 2 + shiftX, frameY + (frameH - drawH) / 2 + shiftY, drawW, drawH); context.restore();
     context.strokeStyle = selectedAccent; context.lineWidth = 3; context.strokeRect(frameX, frameY, frameW, frameH);
   }
   context.textAlign = "left"; context.font = "25px monospace";

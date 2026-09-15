@@ -9,9 +9,10 @@ type PhotoPanelProps = {
 export function PhotoPanel({ photo }: PhotoPanelProps) {
   const {
     photoData, photoName, photoFilter, photoBrightness, photoContrast, photoSaturation,
-    photoZoom, photoError, photoFilterStyle, cameraInputRef, uploadInputRef,
+    photoZoom, photoError, photoFilterStyle, photoTransform, photoOffsetX, photoOffsetY,
+    cameraInputRef, uploadInputRef,
     setPhotoFilter, setPhotoBrightness, setPhotoContrast, setPhotoSaturation, setPhotoZoom,
-    handlePhotoFile, removePhoto,
+    setPhotoOffsetX, setPhotoOffsetY, handlePhotoFile, removePhoto,
   } = photo;
 
   return (
@@ -27,7 +28,7 @@ export function PhotoPanel({ photo }: PhotoPanelProps) {
         </div>
       ) : (
         <div className="photo-editor">
-          <div className="photo-editor-thumb"><img src={photoData} alt="Selected story moment" style={{ filter: photoFilterStyle, transform: `scale(${photoZoom})` }} /><button type="button" onClick={removePhoto} aria-label="Remove photo">×</button><span>{photoName}</span></div>
+          <div className="photo-editor-thumb"><img src={photoData} alt="Selected story moment" style={{ filter: photoFilterStyle, transform: photoTransform }} /><button type="button" onClick={removePhoto} aria-label="Remove photo">×</button><span>{photoName}</span></div>
           <div className="photo-filter-list" aria-label="Photo filters">
             {photoFilters.map((entry) => <button type="button" key={entry.id} className={photoFilter === entry.id ? "active" : ""} aria-pressed={photoFilter === entry.id} onClick={() => setPhotoFilter(entry.id)}><i style={{ backgroundImage: `url(${photoData})`, filter: `${entry.css} brightness(${photoBrightness}%) contrast(${photoContrast}%) saturate(${photoSaturation}%)` }} /><span>{entry.label}</span></button>)}
           </div>
@@ -36,6 +37,8 @@ export function PhotoPanel({ photo }: PhotoPanelProps) {
             <label><span>Contrast <b>{photoContrast}</b></span><input type="range" min="70" max="140" value={photoContrast} onChange={(event) => setPhotoContrast(Number(event.target.value))} /></label>
             <label><span>Color <b>{photoSaturation}</b></span><input type="range" min="0" max="160" value={photoSaturation} onChange={(event) => setPhotoSaturation(Number(event.target.value))} /></label>
             <label><span>Zoom <b>{photoZoom.toFixed(1)}×</b></span><input type="range" min="1" max="1.8" step="0.1" value={photoZoom} onChange={(event) => setPhotoZoom(Number(event.target.value))} /></label>
+                  <label><span>Crop across <b>{photoOffsetX}</b></span><input aria-label="Crop across" type="range" min="-40" max="40" value={photoOffsetX} onChange={(event) => setPhotoOffsetX(Number(event.target.value))} /></label>
+                  <label><span>Crop down <b>{photoOffsetY}</b></span><input aria-label="Crop down" type="range" min="-40" max="40" value={photoOffsetY} onChange={(event) => setPhotoOffsetY(Number(event.target.value))} /></label>
           </div>
           <div className="photo-replace-actions"><button type="button" onClick={() => cameraInputRef.current?.click()}>Retake</button><button type="button" onClick={() => uploadInputRef.current?.click()}>Replace photo</button></div>
         </div>

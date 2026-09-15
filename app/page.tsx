@@ -32,7 +32,7 @@ export default function StoriesHome() {
   const [newLine, setNewLine] = useState("");
   const [copied, setCopied] = useState(false);
   const photo = usePhotoEditor();
-  const { photoData, photoZoom, photoFilterStyle, setPhotoError } = photo;
+  const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
@@ -142,7 +142,7 @@ export default function StoriesHome() {
     return renderStoryPng(
       {
         kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-        activeKind, names, total, items, stickers, photoData, photoZoom, photoFilterStyle,
+        activeKind, names, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
       },
       setPhotoError,
     );

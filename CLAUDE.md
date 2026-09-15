@@ -87,7 +87,10 @@ The local development server normally runs at `http://localhost:3000`.
 - The main editor is a client component and keeps the active draft in React state.
 - Receipt lines can be reordered with drag and drop.
 - Stickers can be added, selected, moved, rotated, resized, and removed.
-- Users can take a photo with the rear camera or upload one, then apply crop position, zoom, rotation, filters, brightness, contrast, saturation, warmth, and fade.
+- Users can take a photo with the rear camera or upload one, then apply crop
+  position (drag the photo on the receipt, or the Crop sliders), zoom, a filter
+  preset, brightness, contrast and saturation. Rotation, warmth and fade are NOT
+  implemented — earlier versions of this file claimed they were.
 - Shareable text/style/sticker state is encoded in the URL hash as `#s=...`.
 - Uploaded photos are intentionally local-only data URLs. They are not uploaded or included in the shared URL.
 - PNG export is rendered with Canvas 2D in `downloadStory`.
@@ -113,11 +116,12 @@ The local development server normally runs at `http://localhost:3000`.
    undo/redo over the `SharedStory` snapshot. Two rules worth keeping: the photo is
    never written to storage, and autosave pauses while a shared story is on screen
    so a visitor's link cannot overwrite the draft on this device.
-3. Mobile touch — partly done. Line-item reordering and sticker dragging are
+3. Mobile touch — mostly done. Line-item reordering and sticker dragging are
    pointer-driven, so a finger works; the grip is a real button and arrow keys
-   reorder too. Still open: photo crop controls, and pointer hit-testing uses
-   `elementFromPoint`, so dragging a row to a position off-screen does nothing
-   (no auto-scroll yet).
+   reorder too. Photo crop position is draggable, with sliders for keyboard use,
+   and preview and PNG export crop to the same place. Still open: two-finger
+   sticker gestures, and pointer hit-testing uses `elementFromPoint`, so dragging
+   a row to a position off-screen does nothing (no auto-scroll yet).
 4. Add reusable receipt templates and user-created template saving.
 5. Improve WYSIWYG export fidelity and add export sizes for Stories, Posts, and downloadable receipts.
 6. Add optional accounts/cloud persistence only after defining privacy, moderation, and storage costs.
