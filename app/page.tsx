@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent } from "react";
 import { kinds, storyLines, totals, stickerAssets, photoFilters } from "./data/story";
 import { makeId, randomStickerTilt } from "./lib/random";
+import { usePhotoEditor } from "./hooks/usePhotoEditor";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import type {
   Accent, Decoration, DiySticker, EdgeStyle, FontStyle, PaperTone,
-  PhotoFilter, SharedStory, StoryItem, StoryKind, Tone, ToolTab,
+  SharedStory, StoryItem, StoryKind, Tone, ToolTab,
 } from "./types";
 
 export default function StoriesHome() {
@@ -36,22 +37,16 @@ export default function StoriesHome() {
   const [newLine, setNewLine] = useState("");
   const [copied, setCopied] = useState(false);
   const [loadedFromShare, setLoadedFromShare] = useState(false);
-  const [photoData, setPhotoData] = useState<string | null>(null);
-  const [photoName, setPhotoName] = useState("");
-  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("original");
-  const [photoBrightness, setPhotoBrightness] = useState(100);
-  const [photoContrast, setPhotoContrast] = useState(100);
-  const [photoSaturation, setPhotoSaturation] = useState(100);
-  const [photoZoom, setPhotoZoom] = useState(1);
-  const [photoError, setPhotoError] = useState("");
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const {
+    photoData, photoName, photoFilter, photoBrightness, photoContrast, photoSaturation,
+    photoZoom, photoError, photoFilterStyle, cameraInputRef, uploadInputRef,
+    setPhotoFilter, setPhotoBrightness, setPhotoContrast, setPhotoSaturation, setPhotoZoom, setPhotoError,
+    handlePhotoFile, removePhoto,
+  } = usePhotoEditor();
   const addInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
   const activeKind = useMemo(() => kinds.find((entry) => entry.id === kind) ?? kinds[0], [kind]);
-  const activePhotoFilter = photoFilters.find((entry) => entry.id === photoFilter)?.css ?? "";
-  const photoFilterStyle = `${activePhotoFilter} brightness(${photoBrightness}%) contrast(${photoContrast}%) saturate(${photoSaturation}%)`.trim();
   const selectedSticker = stickers.find((sticker) => sticker.id === selectedStickerId) ?? null;
   const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition };
 
@@ -170,24 +165,7 @@ export default function StoriesHome() {
     else await copyStoryLink();
   }
 
-  function handlePhotoFile(file?: File) {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { setPhotoError("Please choose an image file."); return; }
-    if (file.size > 15 * 1024 * 1024) { setPhotoError("Please choose an image smaller than 15 MB."); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotoData(String(reader.result)); setPhotoName(file.name || "Camera photo"); setPhotoError("");
-      setPhotoFilter("original"); setPhotoBrightness(100); setPhotoContrast(100); setPhotoSaturation(100); setPhotoZoom(1);
-    };
-    reader.onerror = () => setPhotoError("That photo could not be opened. Please try another one.");
-    reader.readAsDataURL(file);
-  }
 
-  function removePhoto() {
-    setPhotoData(null); setPhotoName(""); setPhotoError("");
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-    if (uploadInputRef.current) uploadInputRef.current.value = "";
-  }
 
   function downloadStory() {
     return renderStoryPng(
