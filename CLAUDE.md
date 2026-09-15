@@ -66,7 +66,14 @@ The local development server normally runs at `http://localhost:3000`.
 
 ## Important files
 
-- `app/page.tsx` — Main editor state, interactions, receipt preview, sharing, and PNG export.
+- `app/page.tsx` — Composes the editor: page-level state (active tool, modals) and layout.
+- `app/hooks/` — `useStoryDraft` (what the receipt says and how it looks), `useStickers`,
+  `usePhotoEditor`. Each owns its slice of state and exposes a stable `hydrate*` for the
+  `#s=` share payload.
+- `app/components/` — `ContentPanel`, `StylePanel`, `PhotoPanel`, `StickerPanel`,
+  `ReceiptCanvas`, `AddLineModal`, `ShareModal`.
+- `app/lib/` — `share.ts` (`#s=` encode/decode), `export.ts` (Canvas 2D PNG), `random.ts`.
+- `app/data/story.ts` — copy and palettes. `app/types.ts` — shared types.
 - `app/globals.css` — Global styles for both the DIY editor and the legacy studio.
 - `app/layout.tsx` — App metadata and shared document layout.
 - `app/studio/StudioClient.tsx` — Business receipt studio UI.
@@ -98,7 +105,8 @@ The local development server normally runs at `http://localhost:3000`.
 
 ## Recommended next improvements
 
-1. Split `app/page.tsx` into editor controls, receipt canvas, photo editor, share/export utilities, and state hooks.
+1. ~~Split `app/page.tsx`~~ — done. It is now composition only; state lives in
+   `app/hooks/`, markup in `app/components/`.
 2. Add undo/redo and local autosave using versioned `localStorage` data.
 3. Improve mobile touch dragging, sticker gestures, and photo crop controls.
 4. Add reusable receipt templates and user-created template saving.
