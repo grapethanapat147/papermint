@@ -87,14 +87,37 @@ export function useStoryDraft() {
     setItems((current) => current.length > 1 ? current.filter((item) => item.id !== id) : current);
   }
 
-  function reorderLineItem(targetId: string) {
-    if (!draggedItemId || draggedItemId === targetId) return;
+  /** Moves `fromId` to wherever `toId` currently sits. Leaves drag state alone. */
+  function moveLineItem(fromId: string, toId: string) {
+    if (fromId === toId) return;
     setItems((current) => {
-      const from = current.findIndex((item) => item.id === draggedItemId);
-      const to = current.findIndex((item) => item.id === targetId);
+      const from = current.findIndex((item) => item.id === fromId);
+      const to = current.findIndex((item) => item.id === toId);
       if (from < 0 || to < 0) return current;
-      const next = [...current]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); return next;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
     });
+  }
+
+  /** Keyboard reordering: one step up or down, clamped at the ends. */
+  function nudgeLineItem(id: string, delta: -1 | 1) {
+    setItems((current) => {
+      const from = current.findIndex((item) => item.id === id);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= current.length) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  /** Drop target for the receipt's desktop drag-and-drop rows. */
+  function reorderLineItem(targetId: string) {
+    if (!draggedItemId) return;
+    moveLineItem(draggedItemId, targetId);
     setDraggedItemId(null);
   }
 
@@ -103,6 +126,7 @@ export function useStoryDraft() {
     items, total, edition, draggedItemId, isGenerating, loadedFromShare, activeKind,
     setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
     setTextScale, setDraggedItemId,
-    hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem, reorderLineItem,
+    hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
+    moveLineItem, nudgeLineItem, reorderLineItem,
   };
 }

@@ -20,6 +20,20 @@ type ReceiptCanvasProps = {
   canRedo: boolean;
 };
 
+/**
+ * Pointer capture keeps a drag alive when the finger leaves the element, but it
+ * throws NotFoundError if the id is no longer an active pointer. Never let that
+ * abort the handler: without capture the drag still works over the element, with
+ * it the drag also survives leaving it.
+ */
+function capturePointer(element: Element, pointerId: number) {
+  try { element.setPointerCapture(pointerId); } catch { /* drag on without capture */ }
+}
+
+function releasePointer(element: Element, pointerId: number) {
+  try { element.releasePointerCapture(pointerId); } catch { /* already gone */ }
+}
+
 export function ReceiptCanvas({
   draft, stickerLayer, photo, receiptRef, setActiveTool, openShare, undo, redo, canUndo, canRedo,
 }: ReceiptCanvasProps) {
@@ -43,7 +57,7 @@ export function ReceiptCanvas({
         </div>
       </div>
         <article ref={receiptRef} className="life-receipt diy-receipt" id="story-receipt" aria-live="polite" style={{"--type-scale":textScale} as CSSProperties} onDragOver={(event) => event.preventDefault()} onDrop={handleReceiptDrop} onPointerMove={(event) => { if (draggingStickerId) positionSticker(draggingStickerId,event.clientX,event.clientY); }} onPointerUp={() => setDraggingStickerId(null)}>
-          <div className="diy-sticker-layer">{stickers.map((sticker) => <button type="button" key={sticker.id} className={`diy-sticker ${selectedStickerId === sticker.id ? "selected" : ""}`} style={{left:`${sticker.x}%`,top:`${sticker.y}%`,fontSize:`${sticker.size}px`,transform:`translate(-50%,-50%) rotate(${sticker.rotation}deg)`}} onPointerDown={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setDraggingStickerId(sticker.id); setActiveTool("stickers"); }} onClick={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setActiveTool("stickers"); }} aria-label={`Move ${sticker.label} sticker`}>{sticker.symbol}</button>)}</div>
+          <div className="diy-sticker-layer">{stickers.map((sticker) => <button type="button" key={sticker.id} className={`diy-sticker ${selectedStickerId === sticker.id ? "selected" : ""}`} style={{left:`${sticker.x}%`,top:`${sticker.y}%`,fontSize:`${sticker.size}px`,transform:`translate(-50%,-50%) rotate(${sticker.rotation}deg)`}} onPointerDown={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setDraggingStickerId(sticker.id); setActiveTool("stickers"); capturePointer(event.currentTarget, event.pointerId); }} onPointerMove={(event) => { if (draggingStickerId === sticker.id) { event.stopPropagation(); positionSticker(sticker.id, event.clientX, event.clientY); } }} onPointerUp={(event) => { releasePointer(event.currentTarget, event.pointerId); setDraggingStickerId(null); }} onPointerCancel={() => setDraggingStickerId(null)} onClick={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setActiveTool("stickers"); }} aria-label={`Move ${sticker.label} sticker`}>{sticker.symbol}</button>)}</div>
           <div className="life-top"><span>PAPERMINT STORIES</span><span>NO. {String(edition).padStart(4, "0")}</span></div>
           {/* The receipt body doubles as a pointer shortcut: clicking a region opens the
               matching tool panel. These are redundant conveniences — every panel is already

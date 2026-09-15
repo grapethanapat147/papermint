@@ -921,3 +921,13 @@ textarea { font: inherit; }
 .canvas-history button:disabled { opacity: .35; cursor: default; }
 .canvas-history button:focus-visible { outline: 2px solid var(--story-accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .canvas-history button { transition: none; } }
+
+/* Line-item reordering is pointer-driven so a finger works, not just a mouse.
+   touch-action must be none or the browser scrolls the page mid-drag. */
+.diy-item-row .drag-grip {
+  touch-action: none; cursor: grab; background: none; border: 0; padding: 0 4px;
+  color: #9a948a; font-size: 14px; line-height: 1;
+}
+.diy-item-row .drag-grip:active { cursor: grabbing; }
+.diy-item-row .drag-grip:focus-visible { outline: 2px solid var(--story-accent); outline-offset: 2px; border-radius: 4px; }
+.diy-item-row.dragging { opacity: .6; }

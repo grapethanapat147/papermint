@@ -23,7 +23,8 @@ export default function StoriesHome() {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
     items, total, edition, isGenerating, loadedFromShare, activeKind,
     setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle, setTextScale,
-    setDraggedItemId, hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem, reorderLineItem,
+    draggedItemId, setDraggedItemId, hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
+    moveLineItem, nudgeLineItem,
   } = draft;
   const [activeTool, setActiveTool] = useState<ToolTab>("content");
   const [shareOpen, setShareOpen] = useState(false);
@@ -167,7 +168,7 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} setDraggedItemId={setDraggedItemId} reorderLineItem={reorderLineItem} />}
+          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
 
           {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 

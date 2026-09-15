@@ -113,7 +113,11 @@ The local development server normally runs at `http://localhost:3000`.
    undo/redo over the `SharedStory` snapshot. Two rules worth keeping: the photo is
    never written to storage, and autosave pauses while a shared story is on screen
    so a visitor's link cannot overwrite the draft on this device.
-3. Improve mobile touch dragging, sticker gestures, and photo crop controls.
+3. Mobile touch — partly done. Line-item reordering and sticker dragging are
+   pointer-driven, so a finger works; the grip is a real button and arrow keys
+   reorder too. Still open: photo crop controls, and pointer hit-testing uses
+   `elementFromPoint`, so dragging a row to a position off-screen does nothing
+   (no auto-scroll yet).
 4. Add reusable receipt templates and user-created template saving.
 5. Improve WYSIWYG export fidelity and add export sizes for Stories, Posts, and downloadable receipts.
 6. Add optional accounts/cloud persistence only after defining privacy, moderation, and storage costs.

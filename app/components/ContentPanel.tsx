@@ -14,14 +14,44 @@ type ContentPanelProps = {
   appendLineItem: (label: string) => void;
   updateLineItem: (id: string, key: "label" | "quantity", value: string) => void;
   removeLineItem: (id: string) => void;
-  /** Drag-to-reorder: the row picked up, then the row dropped on. */
+  /** Drag-to-reorder, driven by pointer events so it works with a finger too. */
+  draggedItemId: string | null;
   setDraggedItemId: (id: string | null) => void;
-  reorderLineItem: (targetId: string) => void;
+  moveLineItem: (fromId: string, toId: string) => void;
+  nudgeLineItem: (id: string, delta: -1 | 1) => void;
 };
+
+/**
+ * Pointer capture keeps a drag alive when the finger leaves the element, but it
+ * throws NotFoundError if the id is no longer an active pointer. Never let that
+ * abort the handler: without capture the drag still works over the element, with
+ * it the drag also survives leaving it.
+ */
+function capturePointer(element: Element, pointerId: number) {
+  try { element.setPointerCapture(pointerId); } catch { /* drag on without capture */ }
+}
+
+function releasePointer(element: Element, pointerId: number) {
+  try { element.releasePointerCapture(pointerId); } catch { /* already gone */ }
+}
+
+/**
+ * The row index under the pointer, so a captured drag can tell what it is over.
+ *
+ * Index, not id: item ids come from Date.now() + Math.random(), so server and
+ * client disagree on them and React refuses to patch up a mismatched attribute.
+ * The position of a row is the same on both sides.
+ */
+function rowIndexAt(x: number, y: number): number | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  const raw = el?.closest<HTMLElement>("[data-item-index]")?.dataset.itemIndex;
+  return raw === undefined ? null : Number(raw);
+}
 
 export function ContentPanel({
   isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote,
-  items, appendLineItem, updateLineItem, removeLineItem, setDraggedItemId, reorderLineItem,
+  items, appendLineItem, updateLineItem, removeLineItem,
+  draggedItemId, setDraggedItemId, moveLineItem, nudgeLineItem,
 }: ContentPanelProps) {
   return (
     <section className="diy-panel" aria-label="Receipt content">
@@ -30,7 +60,39 @@ export function ContentPanel({
       <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
       <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
       <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem("A new memory")}>＋ Add</button></div>
-      <div className="diy-item-list">{items.map((item) => <div key={item.id} className="diy-item-row" draggable onDragStart={() => setDraggedItemId(item.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderLineItem(item.id)}><span className="drag-grip" aria-hidden="true">⠿</span><input aria-label="Line item" value={item.label} onChange={(event) => updateLineItem(item.id,"label",event.target.value)} /><input aria-label="Quantity" value={item.quantity} onChange={(event) => updateLineItem(item.id,"quantity",event.target.value)} /><button type="button" aria-label="Remove line item" onClick={() => removeLineItem(item.id)}>×</button></div>)}</div>
+      <div className="diy-item-list">{items.map((item, index) => (
+        <div key={item.id} data-item-index={index} className={`diy-item-row${draggedItemId === item.id ? " dragging" : ""}`}>
+          <button
+            type="button"
+            className="drag-grip"
+            aria-label={`Reorder ${item.label || "line item"}`}
+            title="Drag to reorder, or use the arrow keys"
+            onPointerDown={(event) => {
+              setDraggedItemId(item.id);
+              capturePointer(event.currentTarget, event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (draggedItemId !== item.id) return;
+              const overIndex = rowIndexAt(event.clientX, event.clientY);
+              const over = overIndex === null ? undefined : items[overIndex];
+              if (over && over.id !== item.id) moveLineItem(item.id, over.id);
+            }}
+            onPointerUp={(event) => {
+              releasePointer(event.currentTarget, event.pointerId);
+              setDraggedItemId(null);
+            }}
+            onPointerCancel={() => setDraggedItemId(null)}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+              event.preventDefault();
+              nudgeLineItem(item.id, event.key === "ArrowUp" ? -1 : 1);
+            }}
+          >⠿</button>
+          <input aria-label="Line item" value={item.label} onChange={(event) => updateLineItem(item.id,"label",event.target.value)} />
+          <input aria-label="Quantity" value={item.quantity} onChange={(event) => updateLineItem(item.id,"quantity",event.target.value)} />
+          <button type="button" aria-label="Remove line item" onClick={() => removeLineItem(item.id)}>×</button>
+        </div>
+      ))}</div>
     </section>
   );
 }

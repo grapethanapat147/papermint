@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import StoriesHome from "../app/page";
 import { encodeStory } from "../app/lib/share";
@@ -277,5 +277,137 @@ describe("autosave and undo", () => {
     fireEvent.keyDown(input, { key: "z", ctrlKey: true });
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(receipt().textContent).toContain("Songs on repeat");
+  });
+});
+
+describe("reordering line items", () => {
+  const labels = () =>
+    [...(panel("Receipt content") as HTMLElement).querySelectorAll<HTMLInputElement>('input[aria-label="Line item"]')]
+      .map((input) => input.value);
+  const grips = () =>
+    [...(panel("Receipt content") as HTMLElement).querySelectorAll<HTMLButtonElement>(".drag-grip")];
+
+  let restoreHitTest: (() => void) | null = null;
+  afterEach(() => { restoreHitTest?.(); restoreHitTest = null; });
+
+  test("the grip is a real control, not an aria-hidden decoration", () => {
+    render(<StoriesHome />);
+    const grip = grips()[0];
+    expect(grip.tagName).toBe("BUTTON");
+    expect(grip.getAttribute("aria-label")).toMatch(/reorder/i);
+    expect(grip.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  test("arrow keys move a row, which drag-and-drop never allowed", () => {
+    render(<StoriesHome />);
+    const before = labels();
+
+    fireEvent.keyDown(grips()[0], { key: "ArrowDown" });
+    expect(labels()).toEqual([before[1], before[0], before[2], before[3]]);
+
+    fireEvent.keyDown(grips()[1], { key: "ArrowUp" });
+    expect(labels()).toEqual(before);
+  });
+
+  test("arrow keys stop at the ends instead of wrapping", () => {
+    render(<StoriesHome />);
+    const before = labels();
+    fireEvent.keyDown(grips()[0], { key: "ArrowUp" });
+    expect(labels()).toEqual(before);
+    fireEvent.keyDown(grips()[before.length - 1], { key: "ArrowDown" });
+    expect(labels()).toEqual(before);
+  });
+
+  test("a pointer drag reorders, so a finger works and not just a mouse", () => {
+    render(<StoriesHome />);
+    const before = labels();
+    const rows = [...(panel("Receipt content") as HTMLElement).querySelectorAll("[data-item-index]")];
+    const grip = grips()[0];
+
+    // jsdom has no layout and does not implement elementFromPoint at all,
+    // so point-hit testing is stubbed to the third row
+    const original = Object.getOwnPropertyDescriptor(document, "elementFromPoint");
+    (document as unknown as { elementFromPoint: unknown }).elementFromPoint = () => rows[2] as Element;
+    restoreHitTest = () => {
+      if (original) Object.defineProperty(document, "elementFromPoint", original);
+      else delete (document as unknown as { elementFromPoint?: unknown }).elementFromPoint;
+    };
+    grip.setPointerCapture = vi.fn();
+    grip.releasePointerCapture = vi.fn();
+
+    fireEvent.pointerDown(grip, { pointerId: 1, pointerType: "touch" });
+    fireEvent.pointerMove(grip, { pointerId: 1, pointerType: "touch", clientX: 10, clientY: 200 });
+    fireEvent.pointerUp(grip, { pointerId: 1, pointerType: "touch" });
+
+    expect(labels()).toEqual([before[1], before[2], before[0], before[3]]);
+    expect(grip.setPointerCapture).toHaveBeenCalledWith(1);
+  });
+
+  test("rows no longer rely on HTML5 drag-and-drop, which touch never fires", () => {
+    render(<StoriesHome />);
+    const rows = [...(panel("Receipt content") as HTMLElement).querySelectorAll(".diy-item-row")];
+    for (const row of rows) {
+      expect(row.getAttribute("draggable")).toBeNull();
+    }
+  });
+
+  test("rows carry a hydration-safe index, not a random id", () => {
+    render(<StoriesHome />);
+    const rows = [...(panel("Receipt content") as HTMLElement).querySelectorAll(".diy-item-row")];
+    rows.forEach((row, index) => {
+      // ids are Date.now()+Math.random(), so an id in the DOM desyncs hydration
+      expect(row.getAttribute("data-item-id")).toBeNull();
+      expect(row.getAttribute("data-item-index")).toBe(String(index));
+    });
+  });
+});
+
+describe("sticker dragging", () => {
+  test("captures the pointer and moves from events on the sticker itself", () => {
+    render(<StoriesHome />);
+    fireEvent.click(tab("Stickers"));
+    fireEvent.click(within(panel("Sticker tools") as HTMLElement).getByRole("button", { name: /Heart/i }));
+
+    const sticker = document.querySelector(".diy-sticker") as HTMLElement;
+    const receipt = document.querySelector("#story-receipt") as HTMLElement;
+    sticker.setPointerCapture = vi.fn();
+    sticker.releasePointerCapture = vi.fn();
+    // jsdom reports a zero-sized box; give the receipt a real one so the
+    // percentage maths has something to work with
+    receipt.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 400, right: 200, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+
+    fireEvent.pointerDown(sticker, { pointerId: 3, pointerType: "touch" });
+    expect(sticker.setPointerCapture).toHaveBeenCalledWith(3);
+
+    // the move is dispatched on the sticker, not the receipt — that is what keeps
+    // the drag alive once a finger leaves the receipt
+    fireEvent.pointerMove(sticker, { pointerId: 3, pointerType: "touch", clientX: 40, clientY: 200 });
+    const moved = document.querySelector(".diy-sticker") as HTMLElement;
+    expect(moved.style.left).toBe("20%");
+    expect(moved.style.top).toBe("50%");
+
+    fireEvent.pointerUp(sticker, { pointerId: 3, pointerType: "touch" });
+    expect(sticker.releasePointerCapture).toHaveBeenCalledWith(3);
+  });
+
+  test("a capture that throws still leaves a usable drag", () => {
+    render(<StoriesHome />);
+    fireEvent.click(tab("Stickers"));
+    fireEvent.click(within(panel("Sticker tools") as HTMLElement).getByRole("button", { name: /Heart/i }));
+
+    const sticker = document.querySelector(".diy-sticker") as HTMLElement;
+    const receipt = document.querySelector("#story-receipt") as HTMLElement;
+    receipt.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 400, right: 200, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+    // setPointerCapture throws NotFoundError for a pointer the browser no longer
+    // tracks. Without the guard that exception escapes the handler and the drag
+    // is dead; with it, the drag simply runs uncaptured.
+    sticker.setPointerCapture = vi.fn(() => { throw new DOMException("no active pointer", "NotFoundError"); });
+
+    fireEvent.pointerDown(sticker, { pointerId: 9, pointerType: "touch" });
+    fireEvent.pointerMove(sticker, { pointerId: 9, pointerType: "touch", clientX: 40, clientY: 200 });
+
+    const moved = document.querySelector(".diy-sticker") as HTMLElement;
+    expect(moved.style.left).toBe("20%");
+    expect(moved.style.top).toBe("50%");
   });
 });
