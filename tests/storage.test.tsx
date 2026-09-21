@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { clearDraft, DRAFT_VERSION, loadDraft, saveDraft } from "../app/lib/storage";
+import { clearDraft, DRAFT_VERSION, loadDraft, loadTemplates, MAX_SAVED_TEMPLATES, saveDraft, saveTemplates } from "../app/lib/storage";
+import type { ReceiptTemplate } from "../app/types";
 import type { SharedStory } from "../app/types";
 
 const KEY = "papermint:draft";
@@ -73,5 +74,58 @@ describe("draft storage", () => {
     // anything that starts smuggling a data URL in here would blow the quota.
     saveDraft({ ...story, names: "no photo here" });
     expect(window.localStorage.getItem(KEY)).not.toContain("data:image");
+  });
+});
+
+describe("template storage", () => {
+  const KEY = "papermint:templates";
+  const make = (n: number): ReceiptTemplate => ({
+    id: `t${n}`, name: `Template ${n}`,
+    kind: "trip", tone: "warm", decoration: "classic", accent: "coral",
+    fontStyle: "editorial", paperTone: "cream", edgeStyle: "torn", textScale: 1.08,
+    note: "n", total: "t", items: [{ label: "a line", quantity: "× 1" }],
+  });
+
+  test("round-trips saved templates", () => {
+    const templates = [make(1), make(2)];
+    expect(saveTemplates(templates)).toBe(true);
+    expect(loadTemplates()).toEqual(templates);
+  });
+
+  test("persists at most the cap, however many are handed in", () => {
+    saveTemplates(Array.from({ length: MAX_SAVED_TEMPLATES + 8 }, (_, n) => make(n)));
+    expect(loadTemplates().length).toBe(MAX_SAVED_TEMPLATES);
+  });
+
+  test("drops a list written by another version", () => {
+    // valid JSON, wrong version — the parse succeeds, so only the version check
+    // can catch this one
+    window.localStorage.setItem(KEY, JSON.stringify({ version: DRAFT_VERSION + 1, templates: [make(1)] }));
+    expect(loadTemplates()).toEqual([]);
+  });
+
+  test("drops entries that are not shaped like templates", () => {
+    window.localStorage.setItem(KEY, JSON.stringify({
+      version: DRAFT_VERSION,
+      templates: [make(1), { id: "x" }, null, { name: "no items", id: "y" }],
+    }));
+    expect(loadTemplates().map((template) => template.id)).toEqual(["t1"]);
+  });
+
+  test("never returns a built-in, so the shipped list cannot be shadowed", () => {
+    window.localStorage.setItem(KEY, JSON.stringify({
+      version: DRAFT_VERSION,
+      templates: [{ ...make(1), builtIn: true }, make(2)],
+    }));
+    expect(loadTemplates().map((template) => template.id)).toEqual(["t2"]);
+  });
+
+  test("a full quota reports failure instead of throwing", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    expect(() => saveTemplates([make(1)])).not.toThrow();
+    expect(saveTemplates([make(1)])).toBe(false);
+    setItem.mockRestore();
   });
 });

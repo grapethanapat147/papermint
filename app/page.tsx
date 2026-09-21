@@ -12,6 +12,7 @@ import { usePhotoEditor } from "./hooks/usePhotoEditor";
 import { useStickers } from "./hooks/useStickers";
 import { useDraftHistory } from "./hooks/useDraftHistory";
 import { useStoryDraft } from "./hooks/useStoryDraft";
+import { useTemplates } from "./hooks/useTemplates";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import { loadDraft, saveDraft } from "./lib/storage";
@@ -24,8 +25,9 @@ export default function StoriesHome() {
     items, total, edition, isGenerating, loadedFromShare, activeKind,
     setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle, setTextScale,
     draggedItemId, setDraggedItemId, hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
-    moveLineItem, nudgeLineItem,
+    moveLineItem, nudgeLineItem, applyTemplate, toTemplate,
   } = draft;
+  const { templates, isFull: templatesFull, saveTemplate, deleteTemplate } = useTemplates();
   const [activeTool, setActiveTool] = useState<ToolTab>("content");
   const [shareOpen, setShareOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -168,7 +170,7 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
+          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
 
           {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 

@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { kinds, storyLines, totals } from "../data/story";
 import { makeId } from "../lib/random";
 import type {
-  Accent, Decoration, EdgeStyle, FontStyle, PaperTone, SharedStory, StoryItem, StoryKind, Tone,
+  Accent, Decoration, EdgeStyle, FontStyle, PaperTone, ReceiptTemplate, SharedStory, StoryItem, StoryKind, Tone,
 } from "../types";
 
 const GENERATE_DELAY_MS = 650;
@@ -49,6 +49,32 @@ export function useStoryDraft() {
     setItems(shared.items); setTotal(shared.total); setEdition(shared.edition);
     setLoadedFromShare(fromShare);
   }, []);
+
+  /**
+   * Seeds the draft from a template. The subject is reset to the kind's prompt
+   * rather than carried over — a template is a starting point, not a copy of
+   * someone's finished receipt. Stickers and the photo are left alone.
+   */
+  const applyTemplate = useCallback((template: ReceiptTemplate) => {
+    setKind(template.kind); setTone(template.tone);
+    setDecoration(template.decoration); setAccent(template.accent);
+    setFontStyle(template.fontStyle); setPaperTone(template.paperTone);
+    setEdgeStyle(template.edgeStyle); setTextScale(template.textScale);
+    setNote(template.note); setTotal(template.total);
+    setItems(template.items.map(({ label, quantity }) => ({ id: makeId(), label, quantity })));
+    setNames(kinds.find((entry) => entry.id === template.kind)?.prompt ?? "");
+    setLoadedFromShare(false);
+  }, []);
+
+  /** Captures the current look and content skeleton. Drops ids, names and edition. */
+  function toTemplate(name: string): Omit<ReceiptTemplate, "id"> {
+    return {
+      name,
+      kind, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
+      note, total,
+      items: items.map(({ label, quantity }) => ({ label, quantity })),
+    };
+  }
 
   function chooseKind(next: StoryKind) {
     const selected = kinds.find((entry) => entry.id === next);
@@ -126,7 +152,7 @@ export function useStoryDraft() {
     items, total, edition, draggedItemId, isGenerating, loadedFromShare, activeKind,
     setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
     setTextScale, setDraggedItemId,
-    hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
+    hydrateDraft, applyTemplate, toTemplate, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
     moveLineItem, nudgeLineItem, reorderLineItem,
   };
 }

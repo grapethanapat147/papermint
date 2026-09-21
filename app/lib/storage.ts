@@ -1,6 +1,10 @@
-import type { SharedStory } from "../types";
+import type { ReceiptTemplate, SharedStory } from "../types";
 
 const STORAGE_KEY = "papermint:draft";
+const TEMPLATES_KEY = "papermint:templates";
+
+/** Caps the saved list so templates can never crowd out the autosaved draft. */
+export const MAX_SAVED_TEMPLATES = 12;
 
 /**
  * Bump when the stored shape changes. A draft written by an older version is
@@ -66,4 +70,43 @@ export function clearDraft(): void {
   const store = storage();
   if (!store) return;
   try { store.removeItem(STORAGE_KEY); } catch { /* nothing more to do */ }
+}
+
+type StoredTemplates = {
+  version: number;
+  templates: ReceiptTemplate[];
+};
+
+/** Returns [] for anything unreadable, so a bad entry never blocks the editor. */
+export function loadTemplates(): ReceiptTemplate[] {
+  const store = storage();
+  if (!store) return [];
+  let raw: string | null = null;
+  try { raw = store.getItem(TEMPLATES_KEY); } catch { return []; }
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as StoredTemplates;
+    if (parsed?.version !== DRAFT_VERSION) return [];
+    if (!Array.isArray(parsed.templates)) return [];
+    return parsed.templates.filter((template) =>
+      template
+      && typeof template.id === "string"
+      && typeof template.name === "string"
+      && Array.isArray(template.items)
+      && !template.builtIn);
+  } catch {
+    return [];
+  }
+}
+
+export function saveTemplates(templates: ReceiptTemplate[]): boolean {
+  const store = storage();
+  if (!store) return false;
+  const payload: StoredTemplates = { version: DRAFT_VERSION, templates: templates.slice(0, MAX_SAVED_TEMPLATES) };
+  try {
+    store.setItem(TEMPLATES_KEY, JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
 }

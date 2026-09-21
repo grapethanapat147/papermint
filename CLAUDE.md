@@ -73,7 +73,8 @@ The local development server normally runs at `http://localhost:3000`.
 - `app/components/` — `ContentPanel`, `StylePanel`, `PhotoPanel`, `StickerPanel`,
   `ReceiptCanvas`, `AddLineModal`, `ShareModal`.
 - `app/lib/` — `share.ts` (`#s=` encode/decode), `export.ts` (Canvas 2D PNG),
-  `storage.ts` (versioned autosave), `random.ts`.
+  `storage.ts` (versioned autosave and saved templates), `random.ts`.
+- `app/data/templates.ts` — the shipped templates.
 - `app/data/story.ts` — copy and palettes. `app/types.ts` — shared types.
 - `app/globals.css` — Global styles for both the DIY editor and the legacy studio.
 - `app/layout.tsx` — App metadata and shared document layout.
@@ -126,7 +127,12 @@ The local development server normally runs at `http://localhost:3000`.
    PNG export crop to the same place. One limit remains: hit-testing uses
    `elementFromPoint`, so dragging a row to an off-screen position does nothing
    (no auto-scroll).
-4. Add reusable receipt templates and user-created template saving.
+4. ~~Add reusable receipt templates and user-created template saving~~ — done.
+   `app/data/templates.ts` ships one per story kind; `app/hooks/useTemplates.ts`
+   holds up to 12 saved per device under `papermint:templates`. A template is the
+   look plus a content skeleton — it deliberately carries neither the subject
+   (`names`), nor stickers, nor the photo, so applying one never pastes someone
+   else's personal details onto a new receipt.
 5. Improve WYSIWYG export fidelity and add export sizes for Stories, Posts, and downloadable receipts.
 6. Add optional accounts/cloud persistence only after defining privacy, moderation, and storage costs.
 7. Build a remixable public gallery only with explicit consent and abuse-reporting controls.

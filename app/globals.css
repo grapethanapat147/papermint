@@ -936,3 +936,24 @@ textarea { font: inherit; }
    page instead of moving the photo. */
 .life-photo { touch-action: none; }
 .life-photo img { user-select: none; -webkit-user-drag: none; }
+
+/* Template picker. New classes only — this file also serves /studio. */
+.template-picker { display: grid; gap: 8px; }
+.template-namer { display: flex; gap: 6px; }
+.template-namer input { flex: 1; min-width: 0; }
+.template-list { display: flex; gap: 8px; margin: 0; padding: 2px 0 4px; list-style: none; overflow-x: auto; scrollbar-width: thin; }
+.template-list li { position: relative; flex: 0 0 auto; }
+.template-chip {
+  display: grid; gap: 2px; min-height: 46px; padding: 8px 12px; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--story-accent) 26%, transparent);
+  border-radius: 10px; background: rgba(255, 253, 248, .74); cursor: pointer;
+}
+.template-chip b { font-size: 12px; letter-spacing: .02em; }
+.template-chip small { font-size: 10px; color: #77736b; }
+.template-chip:hover { background: color-mix(in srgb, var(--story-accent) 10%, transparent); }
+.template-chip:focus-visible, .template-delete:focus-visible { outline: 2px solid var(--story-accent); outline-offset: 2px; }
+.template-delete {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0;
+  border-radius: 50%; border: 1px solid color-mix(in srgb, var(--story-accent) 30%, transparent);
+  background: #fffdf8; color: var(--story-accent); font-size: 12px; line-height: 1; cursor: pointer;
+}

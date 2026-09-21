@@ -1,4 +1,6 @@
 import { kinds } from "../data/story";
+import { TemplatePicker } from "./TemplatePicker";
+import type { ReceiptTemplate } from "../types";
 import type { StoryItem, StoryKind, Tone } from "../types";
 
 type ContentPanelProps = {
@@ -14,6 +16,11 @@ type ContentPanelProps = {
   appendLineItem: (label: string) => void;
   updateLineItem: (id: string, key: "label" | "quantity", value: string) => void;
   removeLineItem: (id: string) => void;
+  templates: ReceiptTemplate[];
+  templatesFull: boolean;
+  applyTemplate: (template: ReceiptTemplate) => void;
+  saveTemplate: (name: string) => void;
+  deleteTemplate: (id: string) => void;
   /** Drag-to-reorder, driven by pointer events so it works with a finger too. */
   draggedItemId: string | null;
   setDraggedItemId: (id: string | null) => void;
@@ -51,11 +58,13 @@ function rowIndexAt(x: number, y: number): number | null {
 export function ContentPanel({
   isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote,
   items, appendLineItem, updateLineItem, removeLineItem,
+  templates, templatesFull, applyTemplate, saveTemplate, deleteTemplate,
   draggedItemId, setDraggedItemId, moveLineItem, nudgeLineItem,
 }: ContentPanelProps) {
   return (
     <section className="diy-panel" aria-label="Receipt content">
       <div className="diy-panel-heading"><div><strong>Build your story</strong><small>Drag line items to reorder them.</small></div><button type="button" disabled={isGenerating} onClick={() => generateStory()}>{isGenerating ? "Printing…" : "↻ Generate"}</button></div>
+      <TemplatePicker templates={templates} isFull={templatesFull} onApply={applyTemplate} onSave={saveTemplate} onDelete={deleteTemplate} />
       <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
       <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
       <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
