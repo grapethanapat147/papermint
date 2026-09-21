@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type RefObject } from "react";
 
+import { receiptChrome } from "../data/story";
 import type { usePhotoEditor } from "../hooks/usePhotoEditor";
 import type { useStickers } from "../hooks/useStickers";
 import type { useStoryDraft } from "../hooks/useStoryDraft";
@@ -64,7 +65,7 @@ export function ReceiptCanvas({
       </div>
         <article ref={receiptRef} className="life-receipt diy-receipt" id="story-receipt" aria-live="polite" style={{"--type-scale":textScale} as CSSProperties} onDragOver={(event) => event.preventDefault()} onDrop={handleReceiptDrop} onPointerMove={(event) => { if (draggingStickerId) positionSticker(draggingStickerId,event.clientX,event.clientY); }} onPointerUp={() => setDraggingStickerId(null)}>
           <div className="diy-sticker-layer">{stickers.map((sticker) => <button type="button" key={sticker.id} className={`diy-sticker ${selectedStickerId === sticker.id ? "selected" : ""}`} style={{left:`${sticker.x}%`,top:`${sticker.y}%`,fontSize:`${sticker.size}px`,transform:`translate(-50%,-50%) rotate(${sticker.rotation}deg)`}} onPointerDown={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setDraggingStickerId(sticker.id); setActiveTool("stickers"); trackPointerDown(sticker, event.pointerId, event.clientX, event.clientY); capturePointer(event.currentTarget, event.pointerId); }} onPointerMove={(event) => { event.stopPropagation(); if (trackPointerMove(event.pointerId, event.clientX, event.clientY)) return; if (draggingStickerId === sticker.id) { positionSticker(sticker.id, event.clientX, event.clientY); } }} onPointerUp={(event) => { event.stopPropagation(); const lastFinger = trackPointerUp(event.pointerId); releasePointer(event.currentTarget, event.pointerId); if (lastFinger) setDraggingStickerId(null); }} onPointerCancel={(event) => { event.stopPropagation(); if (trackPointerUp(event.pointerId)) setDraggingStickerId(null); }} onClick={(event) => { event.stopPropagation(); setSelectedStickerId(sticker.id); setActiveTool("stickers"); }} aria-label={`Move ${sticker.label} sticker`}>{sticker.symbol}</button>)}</div>
-          <div className="life-top"><span>PAPERMINT STORIES</span><span>NO. {String(edition).padStart(4, "0")}</span></div>
+          <div className="life-top"><span>{receiptChrome.brand}</span><span>NO. {String(edition).padStart(4, "0")}</span></div>
           {/* The receipt body doubles as a pointer shortcut: clicking a region opens the
               matching tool panel. These are redundant conveniences — every panel is already
               reachable from the keyboard via the tool tab bar above — so these regions are
@@ -72,8 +73,8 @@ export function ReceiptCanvas({
               duplicate tab stops on a preview and strip the heading, paragraph and list
               semantics screen readers rely on to read the receipt itself. */}
           {/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
-          <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{names || "Your story"}</p>
-          <div className="life-date"><span>ISSUED WITH FEELINGS</span><span>24 AUG 2026</span></div>
+          <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{names || receiptChrome.fallbackNames}</p>
+          <div className="life-date"><span>{receiptChrome.issuedLabel}</span><span>{receiptChrome.issuedOn}</span></div>
           {photoData && <div
             className="life-photo receipt-click-target"
             onClick={() => { if (photoDrag.current?.moved) { photoDrag.current = null; return; } setActiveTool("photo"); }}
@@ -96,12 +97,12 @@ export function ReceiptCanvas({
             }}
             onPointerUp={(event) => { releasePointer(event.currentTarget, event.pointerId); }}
             onPointerCancel={() => { photoDrag.current = null; }}
-          ><img src={photoData} alt="Story moment" draggable={false} style={{ filter: photoFilterStyle, transform: photoTransform }} /><span>THE MOMENT, AS IT FELT</span></div>}
+          ><img src={photoData} alt="Story moment" draggable={false} style={{ filter: photoFilterStyle, transform: photoTransform }} /><span>{receiptChrome.photoCaption}</span></div>}
           <div className="life-items receipt-click-target" onClick={() => setActiveTool("content")}>{items.map((item) => <div key={item.id} draggable onDragStart={(event) => { event.stopPropagation(); setDraggedItemId(item.id); }} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); reorderLineItem(item.id); }}><span><i>⠿</i>{item.label}</span><b>{item.quantity}</b></div>)}</div>
-          <div className="life-total receipt-click-target" onClick={() => setActiveTool("style")}><span>TOTAL</span><strong>{total}</strong></div>
-          <div className="life-footer"><span className="life-stamp receipt-click-target" onClick={() => setActiveTool("stickers")}>STILL<br />ADDING<br />UP</span><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{note || "Not perfect. Still ours."}</p></div>
+          <div className="life-total receipt-click-target" onClick={() => setActiveTool("style")}><span>{receiptChrome.totalLabel}</span><strong>{total}</strong></div>
+          <div className="life-footer"><span className="life-stamp receipt-click-target" onClick={() => setActiveTool("stickers")}>STILL<br />ADDING<br />UP</span><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{note || receiptChrome.fallbackNote}</p></div>
           {/* eslint-enable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
-          <div className="life-barcode" /><small>NOT A FINANCIAL DOCUMENT · JUST PROOF IT MATTERED</small>
+          <div className="life-barcode" /><small>{receiptChrome.disclaimer}</small>
         </article>
         <div className="receipt-actions diy-actions"><button type="button" onClick={() => setActiveTool("content")}>✎ Edit</button><button type="button" onClick={() => setActiveTool("stickers")}>✦ Add sticker</button><button type="button" onClick={() => generateStory(tone)}>↻ Remix</button><button className="share-story" type="button" onClick={openShare}>Share ↗</button></div>
     </section>

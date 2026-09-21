@@ -140,13 +140,14 @@ export default function StoriesHome() {
 
 
 
-  function downloadStory() {
+  function downloadStory(preset: Parameters<typeof renderStoryPng>[2] = "story") {
     return renderStoryPng(
       {
         kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-        activeKind, names, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
+        activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
       },
       setPhotoError,
+      preset,
     );
   }
 

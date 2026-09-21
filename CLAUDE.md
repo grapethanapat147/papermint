@@ -96,7 +96,9 @@ The local development server normally runs at `http://localhost:3000`.
   implemented — earlier versions of this file claimed they were.
 - Shareable text/style/sticker state is encoded in the URL hash as `#s=...`.
 - Uploaded photos are intentionally local-only data URLs. They are not uploaded or included in the shared URL.
-- PNG export is rendered with Canvas 2D in `downloadStory`.
+- PNG export is rendered with Canvas 2D in `downloadStory`, which takes an
+  export preset (story / post / receipt). Anything added to the receipt must be
+  drawn there too, and its fixed copy belongs in `receiptChrome`.
 - The app currently has no required account, database, or cloud image storage for the consumer creation flow.
 
 ## Engineering constraints
@@ -133,7 +135,15 @@ The local development server normally runs at `http://localhost:3000`.
    look plus a content skeleton — it deliberately carries neither the subject
    (`names`), nor stickers, nor the photo, so applying one never pastes someone
    else's personal details onto a new receipt.
-5. Improve WYSIWYG export fidelity and add export sizes for Stories, Posts, and downloadable receipts.
+5. ~~Improve WYSIWYG export fidelity and add export sizes~~ — done. Three
+   presets in `app/lib/export.ts`: Story 1080x1920, Post 1080x1350, and Receipt
+   only 840x1780 with no backdrop. The receipt is drawn once at its own size and
+   the whole thing is scaled to fit, so no preset re-flows or loses content;
+   Story still lands at scale 1, unchanged from before. Fidelity gaps closed: the
+   user's note (it was missing from the PNG entirely), the issued-on row, the
+   photo caption and the barcode. Fixed receipt copy now lives in
+   `receiptChrome` in `app/data/story.ts` so the screen and the canvas cannot
+   drift apart again.
 6. Add optional accounts/cloud persistence only after defining privacy, moderation, and storage costs.
 7. Build a remixable public gallery only with explicit consent and abuse-reporting controls.
 

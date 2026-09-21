@@ -54,3 +54,20 @@ export const photoFilters: Array<{ id: PhotoFilter; label: string; css: string }
   { id: "mono", label: "B&W", css: "grayscale(1) contrast(1.08)" },
   { id: "dream", label: "Dream", css: "brightness(1.06) saturate(1.22) contrast(.94)" },
 ];
+
+/**
+ * Fixed copy printed on every receipt. Kept here so the on-screen receipt and
+ * the PNG export cannot drift apart — they previously did: the note the user
+ * writes was shown on screen and silently dropped from the export.
+ */
+export const receiptChrome = {
+  brand: "PAPERMINT STORIES",
+  issuedLabel: "ISSUED WITH FEELINGS",
+  issuedOn: "24 AUG 2026",
+  photoCaption: "THE MOMENT, AS IT FELT",
+  totalLabel: "TOTAL",
+  stamp: ["STILL", "ADDING", "UP"],
+  disclaimer: "NOT A FINANCIAL DOCUMENT · JUST PROOF IT MATTERED",
+  fallbackNote: "Not perfect. Still ours.",
+  fallbackNames: "Your story",
+} as const;
