@@ -15,6 +15,7 @@ import { useStoryDraft } from "./hooks/useStoryDraft";
 import { useTemplates } from "./hooks/useTemplates";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
+import { createHandoff, fetchHandoff, handoffUrl } from "./lib/handoff";
 import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
 
@@ -33,8 +34,11 @@ export default function StoriesHome() {
   const [addOpen, setAddOpen] = useState(false);
   const [newLine, setNewLine] = useState("");
   const [copied, setCopied] = useState(false);
+  const [handoffError, setHandoffError] = useState("");
+  const [handoff, setHandoff] = useState<{ url: string; expiresAt: number } | null>(null);
+  const [handoffPending, setHandoffPending] = useState(false);
   const photo = usePhotoEditor();
-  const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError } = photo;
+  const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError, hydratePhoto } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
@@ -62,6 +66,25 @@ export default function StoriesHome() {
   // their receipt, not yesterday's work. The saved draft is not cleared, so
   // navigating back to a bare URL brings it back.
   useEffect(() => {
+    // A `?h=` handoff wins over everything: the person clicked their own link to
+    // carry this draft here, photo included. Then a shared `#s=` link, then the
+    // draft already on this device.
+    const handoffId = new URLSearchParams(window.location.search).get("h");
+    if (handoffId) {
+      let cancelled = false;
+      resetHistory();
+      void fetchHandoff(handoffId).then((handoff) => {
+        if (cancelled || !handoff) {
+          if (!cancelled) setHandoffError("That handoff link has expired or is not valid.");
+          return;
+        }
+        applyStory(handoff.story);
+        hydratePhoto(handoff.photo);
+        window.history.replaceState(null, "", window.location.pathname);
+      });
+      return () => { cancelled = true; };
+    }
+
     const match = window.location.hash.match(/^#s=([^&]+)/);
     const shared = match ? decodeStory(match[1]) : null;
     if (shared) {
@@ -75,7 +98,7 @@ export default function StoriesHome() {
       resetHistory();
       applyStory(saved);
     }
-  }, [applyStory, hydrateDraft, hydrateStickers, resetHistory]);
+  }, [applyStory, hydrateDraft, hydratePhoto, hydrateStickers, resetHistory]);
 
   // Autosave, coalesced so a burst of typing writes once. Photos are excluded by
   // the SharedStory shape itself, which also keeps this well inside the quota.
@@ -108,6 +131,20 @@ export default function StoriesHome() {
   }, [addOpen]);
 
 
+
+  /** Uploads this draft, photo included, and hands back a one-day link. */
+  async function startHandoff() {
+    setHandoffPending(true);
+    setHandoffError("");
+    try {
+      const created = await createHandoff(story, photoData);
+      setHandoff({ url: handoffUrl(created.id), expiresAt: created.expiresAt });
+    } catch (error) {
+      setHandoffError(error instanceof Error ? error.message : "The handoff could not be created.");
+    } finally {
+      setHandoffPending(false);
+    }
+  }
 
   function addLineItem() {
     if (!newLine.trim()) return;
@@ -186,7 +223,7 @@ export default function StoriesHome() {
 
       {addOpen && <AddLineModal closeModal={() => setAddOpen(false)} addInputRef={addInputRef} newLine={newLine} setNewLine={setNewLine} addLineItem={addLineItem} />}
 
-      {shareOpen && <ShareModal closeModal={() => setShareOpen(false)} activeKind={activeKind} names={names} items={items} nativeShare={nativeShare} copyStoryLink={copyStoryLink} copied={copied} downloadStory={downloadStory} photoData={photoData} />}
+      {shareOpen && <ShareModal closeModal={() => { setShareOpen(false); setHandoff(null); setHandoffError(""); }} startHandoff={startHandoff} handoff={handoff} handoffPending={handoffPending} handoffError={handoffError} activeKind={activeKind} names={names} items={items} nativeShare={nativeShare} copyStoryLink={copyStoryLink} copied={copied} downloadStory={downloadStory} photoData={photoData} />}
     </main>
   );
 }

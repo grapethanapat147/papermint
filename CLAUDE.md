@@ -95,6 +95,10 @@ The local development server normally runs at `http://localhost:3000`.
   preset, brightness, contrast and saturation. Rotation, warmth and fade are NOT
   implemented — earlier versions of this file claimed they were.
 - Shareable text/style/sticker state is encoded in the URL hash as `#s=...`.
+- A device handoff (`?h=<id>`) carries the draft AND its photo through R2 for 24
+  hours, with no account — the unguessable link is the only credential. The photo
+  is downscaled on the device before upload. Precedence on load: `?h=` beats
+  `#s=`, which beats the saved draft.
 - Uploaded photos are intentionally local-only data URLs. They are not uploaded or included in the shared URL.
 - PNG export is rendered with Canvas 2D in `downloadStory`, which takes an
   export preset (story / post / receipt). Anything added to the receipt must be
@@ -103,7 +107,13 @@ The local development server normally runs at `http://localhost:3000`.
 
 ## Engineering constraints
 
-- Do not add user photos to URLs, analytics, or remote storage without an explicit privacy and persistence design.
+- Do not add user photos to URLs, analytics, or remote storage without an explicit
+  privacy and persistence design. The one sanctioned exception is the `?h=` device
+  handoff: downscaled, 24-hour retention, no account. Anything longer or broader
+  needs that design written down first.
+- `.openai/hosting.json` now declares `"r2": "HANDOFF"`. The app degrades to a 503
+  and hides nothing else when the binding is absent, so a deployment without the
+  bucket still works — but the handoff will not.
 - Never commit secrets or `.env` files.
 - Keep `.openai/hosting.json` and its `project_id` intact so the existing public site can be updated.
 - Keep changes responsive from small phones through desktop screens.
@@ -144,7 +154,13 @@ The local development server normally runs at `http://localhost:3000`.
    photo caption and the barcode. Fixed receipt copy now lives in
    `receiptChrome` in `app/data/story.ts` so the screen and the canvas cannot
    drift apart again.
-6. Add optional accounts/cloud persistence only after defining privacy, moderation, and storage costs.
+6. Partly done — the privacy/moderation/cost work is written up in the decision
+   doc, and the outcome was a device handoff rather than accounts: `?h=` links,
+   photo included, 24-hour retention, no sign-in. Accounts and long-term cloud
+   persistence remain undone and still need that design.
+   **Outstanding for the handoff:** an R2 lifecycle rule on the bucket, so expired
+   bytes go even if nobody opens the link again — expiry is currently enforced on
+   read only. And a QR code beside the link, which needs a dependency.
 7. Build a remixable public gallery only with explicit consent and abuse-reporting controls.
 
 ## Definition of done

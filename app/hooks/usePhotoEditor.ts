@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { photoFilters } from "../data/story";
 import type { PhotoFilter } from "../types";
@@ -56,6 +56,18 @@ export function usePhotoEditor() {
     setPhotoOffsetY((current) => clampOffset(current + dyPercent));
   }
 
+  /**
+   * Puts a photo back from a device handoff. Stable, so a mount effect can
+   * depend on it. Adjustments reset because they are not carried across.
+   */
+  const hydratePhoto = useCallback((dataUrl: string | null) => {
+    setPhotoData(dataUrl);
+    setPhotoName(dataUrl ? "Handed off photo" : "");
+    setPhotoError("");
+    setPhotoFilter("original"); setPhotoBrightness(100); setPhotoContrast(100); setPhotoSaturation(100);
+    setPhotoZoom(1); setPhotoOffsetX(0); setPhotoOffsetY(0);
+  }, []);
+
   function removePhoto() {
     setPhotoData(null); setPhotoName(""); setPhotoError("");
     setPhotoOffsetX(0); setPhotoOffsetY(0);
@@ -70,6 +82,6 @@ export function usePhotoEditor() {
     setPhotoFilter, setPhotoBrightness, setPhotoContrast, setPhotoSaturation, setPhotoZoom, setPhotoError,
     setPhotoOffsetX: (value: number) => setPhotoOffsetX(clampOffset(value)),
     setPhotoOffsetY: (value: number) => setPhotoOffsetY(clampOffset(value)),
-    nudgePhotoOffset, handlePhotoFile, removePhoto,
+    nudgePhotoOffset, handlePhotoFile, removePhoto, hydratePhoto,
   };
 }
