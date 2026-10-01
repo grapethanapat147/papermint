@@ -158,9 +158,19 @@ The local development server normally runs at `http://localhost:3000`.
    doc, and the outcome was a device handoff rather than accounts: `?h=` links,
    photo included, 24-hour retention, no sign-in. Accounts and long-term cloud
    persistence remain undone and still need that design.
-   **Outstanding for the handoff:** an R2 lifecycle rule on the bucket, so expired
-   bytes go even if nobody opens the link again — expiry is currently enforced on
-   read only. And a QR code beside the link, which needs a dependency.
+   Expired handoffs are deleted on read (410) and also swept on every create:
+   `sweepExpired` in `app/lib/handoff-shared.ts` lists up to 200 `handoff/`
+   objects and deletes those whose `customMetadata.expiresAt` has passed (or is
+   missing), without downloading them. So no Cloudflare lifecycle rule is needed
+   while people keep creating handoffs; the gap is a quiet period with no creates,
+   when expired bytes sit until the next one. A daily R2 lifecycle rule on the
+   bucket would close that, if the platform exposes one.
+   The handoff link also shows a QR (`app/components/QrCode.tsx`, built on
+   `qrcode-generator` via `app/lib/qr.ts`), drawn as inline SVG black on white
+   whatever the theme. It is lazy-loaded so the editor's first load does not pay
+   for the encoder. jsdom cannot decode a QR, so the tests check the symbol's
+   structure; that it scans back to the exact link is a browser check
+   (`BarcodeDetector`).
 7. Build a remixable public gallery only with explicit consent and abuse-reporting controls.
 
 ## Definition of done
