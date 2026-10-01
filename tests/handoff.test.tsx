@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 
 import {
-  HANDOFF_TTL_MS, MAX_HANDOFF_BYTES, handoffKey, isExpired, isValidHandoffId, makeHandoffId,
+  HANDOFF_TTL_MS, MAX_HANDOFF_BYTES, SWEEP_LIMIT, handoffKey, isExpired, isValidHandoffId,
+  makeHandoffId, sweepExpired,
 } from "../app/lib/handoff-shared";
 import { downscalePhoto } from "../app/lib/handoff";
 
@@ -78,5 +79,52 @@ describe("size guard", () => {
     expect(MAX_HANDOFF_BYTES).toBe(600_000);
     // a 1440-edge JPEG at quality 0.8 measures roughly 215KB in the decision doc
     expect(MAX_HANDOFF_BYTES).toBeGreaterThan(215_000 * 2);
+  });
+});
+
+describe("expiry sweep", () => {
+  const NOW = 2_000_000_000_000;
+  const bucketOf = (objects: { key: string; customMetadata?: Record<string, string> }[]) => {
+    const deleted: string[] = [];
+    return {
+      deleted,
+      list: vi.fn(async () => ({ objects })),
+      delete: vi.fn(async (key: string) => { deleted.push(key); }),
+    };
+  };
+
+  test("deletes only what is past its expiry", async () => {
+    const bucket = bucketOf([
+      { key: "handoff/live", customMetadata: { expiresAt: String(NOW + 60_000) } },
+      { key: "handoff/stale", customMetadata: { expiresAt: String(NOW - 60_000) } },
+      { key: "handoff/exactly-now", customMetadata: { expiresAt: String(NOW) } },
+    ]);
+    await expect(sweepExpired(bucket, NOW)).resolves.toBe(2);
+    expect(bucket.deleted.sort()).toEqual(["handoff/exactly-now", "handoff/stale"]);
+  });
+
+  test("removes records with missing or nonsense expiry rather than keeping them forever", async () => {
+    const bucket = bucketOf([
+      { key: "handoff/no-metadata" },
+      { key: "handoff/garbage", customMetadata: { expiresAt: "soon" } },
+      { key: "handoff/live", customMetadata: { expiresAt: String(NOW + 1) } },
+    ]);
+    await expect(sweepExpired(bucket, NOW)).resolves.toBe(2);
+    expect(bucket.deleted).not.toContain("handoff/live");
+  });
+
+  test("only ever looks under the handoff prefix, and in bounded batches", async () => {
+    const bucket = bucketOf([]);
+    await sweepExpired(bucket, NOW);
+    expect(bucket.list).toHaveBeenCalledWith({
+      prefix: "handoff/", limit: SWEEP_LIMIT, include: ["customMetadata"],
+    });
+  });
+
+  test("reads expiry from metadata, never by downloading the record", async () => {
+    const bucket = bucketOf([{ key: "handoff/stale", customMetadata: { expiresAt: String(NOW - 1) } }]);
+    await sweepExpired(bucket, NOW);
+    expect(bucket.list).toHaveBeenCalledWith(expect.objectContaining({ include: ["customMetadata"] }));
+    expect(bucket).not.toHaveProperty("get");
   });
 });

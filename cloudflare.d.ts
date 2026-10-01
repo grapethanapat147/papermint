@@ -41,4 +41,14 @@ interface R2Bucket {
     },
   ): Promise<unknown>;
   delete(key: string): Promise<void>;
+  list(options?: {
+    prefix?: string;
+    limit?: number;
+    cursor?: string;
+    include?: ("customMetadata" | "httpMetadata")[];
+  }): Promise<{
+    objects: { key: string; customMetadata?: Record<string, string> }[];
+    truncated: boolean;
+    cursor?: string;
+  }>;
 }

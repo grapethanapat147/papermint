@@ -34,3 +34,37 @@ export const handoffKey = (id: string) => `handoff/${id}`;
 export function isExpired(record: { expiresAt: number }, now = Date.now()) {
   return record.expiresAt <= now;
 }
+
+/**
+ * How many objects one sweep looks at. Keeps the create request quick while
+ * still clearing far more than a single request can add.
+ */
+export const SWEEP_LIMIT = 200;
+
+/**
+ * Deletes handoffs whose 24 hours are up.
+ *
+ * Runs opportunistically on create so expiry does not depend on a bucket
+ * lifecycle rule, which lives in the Cloudflare dashboard rather than in this
+ * repo. Expiry is read from object metadata, so nothing is downloaded.
+ * Returns how many were removed.
+ */
+export async function sweepExpired(
+  bucket: {
+    list(options?: { prefix?: string; limit?: number; include?: ("customMetadata" | "httpMetadata")[] }): Promise<{
+      objects: { key: string; customMetadata?: Record<string, string> }[];
+    }>;
+    delete(key: string): Promise<void>;
+  },
+  now = Date.now(),
+): Promise<number> {
+  const listing = await bucket.list({ prefix: "handoff/", limit: SWEEP_LIMIT, include: ["customMetadata"] });
+  const stale = listing.objects.filter((object) => {
+    const raw = object.customMetadata?.expiresAt;
+    if (!raw) return true; // written before metadata existed, or tampered with
+    const expiresAt = Number(raw);
+    return !Number.isFinite(expiresAt) || expiresAt <= now;
+  });
+  await Promise.all(stale.map((object) => bucket.delete(object.key)));
+  return stale.length;
+}

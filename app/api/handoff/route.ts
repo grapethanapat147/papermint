@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import {
-  HANDOFF_TTL_MS, MAX_HANDOFF_BYTES, handoffKey, makeHandoffId,
+  HANDOFF_TTL_MS, MAX_HANDOFF_BYTES, handoffKey, makeHandoffId, sweepExpired,
   type HandoffPayload, type HandoffRecord,
 } from "../../lib/handoff-shared";
 
@@ -48,6 +48,10 @@ export async function POST(request: Request) {
       { status: 413 },
     );
   }
+
+  // Clear anything already past its 24 hours before adding another. A failure
+  // here must not stop the handoff the person actually asked for.
+  await sweepExpired(bucket).catch(() => 0);
 
   const id = makeHandoffId();
   await bucket.put(handoffKey(id), body, {
