@@ -64,9 +64,42 @@ describe("story kind", () => {
   });
 });
 
+describe("the subject comes first", () => {
+  const content = () => panel("Receipt content") as HTMLElement;
+  const subject = () => within(content()).getByRole("textbox", { name: /WHO OR WHAT IS IT ABOUT/i }) as HTMLInputElement;
+
+  test("it is the first field in the content panel, and templates come after the line items", () => {
+    render(<StoriesHome />);
+    const fields = [...content().querySelectorAll("input, textarea")];
+    expect(fields[0]).toBe(subject());
+    const lastLine = within(content()).getAllByRole("textbox", { name: "Line item" }).pop() as HTMLElement;
+    const picker = content().querySelector(".template-picker") as HTMLElement;
+    expect(lastLine.compareDocumentPosition(picker) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  test("while it is the example, a hint says so and focusing selects it all", () => {
+    render(<StoriesHome />);
+    const hint = document.getElementById("subject-hint");
+    expect(hint?.textContent).toMatch(/example/i);
+    expect(subject().getAttribute("aria-describedby")).toBe("subject-hint");
+    fireEvent.focus(subject());
+    expect([subject().selectionStart, subject().selectionEnd]).toEqual([0, subject().value.length]);
+  });
+
+  test("once it is theirs, the hint goes and focusing leaves the caret alone", () => {
+    render(<StoriesHome />);
+    fireEvent.change(subject(), { target: { value: "Grape & Nam" } });
+    expect(document.getElementById("subject-hint")).toBeNull();
+    expect(subject().hasAttribute("aria-describedby")).toBe(false);
+    subject().setSelectionRange(3, 3);
+    fireEvent.focus(subject());
+    expect([subject().selectionStart, subject().selectionEnd]).toEqual([3, 3]);
+  });
+});
+
 describe("keeping what they wrote", () => {
   const content = () => panel("Receipt content") as HTMLElement;
-  const subject = () => within(content()).getByRole("textbox", { name: /SUBJECT/i }) as HTMLInputElement;
+  const subject = () => within(content()).getByRole("textbox", { name: /WHO OR WHAT IS IT ABOUT/i }) as HTMLInputElement;
   const lineInputs = () => within(content()).getAllByRole("textbox", { name: "Line item" }) as HTMLInputElement[];
   const remix = () => [...document.querySelectorAll(".diy-actions button")].find((b) => b.textContent?.includes("Remix")) as HTMLElement;
 

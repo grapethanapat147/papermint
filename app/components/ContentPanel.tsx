@@ -1,4 +1,7 @@
+import { useRef } from "react";
+
 import { kinds, newLine } from "../data/story";
+import { isSampleName } from "../lib/remix";
 import { TemplatePicker } from "./TemplatePicker";
 import type { ReceiptTemplate } from "../types";
 import type { StoryItem, StoryKind, Tone } from "../types";
@@ -61,12 +64,24 @@ export function ContentPanel({
   templates, templatesFull, applyTemplate, saveTemplate, deleteTemplate,
   draggedItemId, setDraggedItemId, moveLineItem, nudgeLineItem,
 }: ContentPanelProps) {
+  const sampleSubject = isSampleName(names);
+  // Chrome and Safari clear a focus-time selection on the mouseup that follows.
+  const selectedOnFocus = useRef(false);
   return (
     <section className="diy-panel" aria-label="Receipt content">
       <div className="diy-panel-heading"><div><strong>Build your story</strong><small>Drag line items to reorder them.</small></div><button type="button" disabled={isGenerating} onClick={() => generateStory()}>{isGenerating ? "Printing…" : "↻ Generate"}</button></div>
-      <TemplatePicker templates={templates} isFull={templatesFull} onApply={applyTemplate} onSave={saveTemplate} onDelete={deleteTemplate} />
+      {/* First, because putting their own names on it is the one step every receipt
+          needs. While it still holds the example, a click selects it all so the
+          first keystroke replaces it, and a hint says it is only an example. */}
+      <label className="diy-field subject-field"><span>WHO OR WHAT IS IT ABOUT?</span><input
+        value={names}
+        aria-describedby={sampleSubject ? "subject-hint" : undefined}
+        onChange={(event) => setNames(event.target.value)}
+        onFocus={(event) => { if (sampleSubject) { event.target.select(); selectedOnFocus.current = true; } }}
+        onMouseUp={(event) => { if (selectedOnFocus.current) { event.preventDefault(); selectedOnFocus.current = false; } }}
+      /></label>
+      {sampleSubject && <small className="field-hint" id="subject-hint">That&apos;s an example. Replace it with your own names or title.</small>}
       <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
-      <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
       <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
       <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem(newLine.label)}>＋ Add</button></div>
       <div className="diy-item-list">{items.map((item, index) => (
@@ -102,6 +117,8 @@ export function ContentPanel({
           <button type="button" aria-label="Remove line item" onClick={() => removeLineItem(item.id)}>×</button>
         </div>
       ))}</div>
+      {/* Last: a template is another way to start, and "Save this" belongs after the work. */}
+      <TemplatePicker templates={templates} isFull={templatesFull} onApply={applyTemplate} onSave={saveTemplate} onDelete={deleteTemplate} />
     </section>
   );
 }

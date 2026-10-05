@@ -102,6 +102,10 @@ The local development server normally runs at `http://localhost:3000`.
   Switching story type swaps the subject only while it is still an example
   prompt. Applying a template keeps a subject the person typed, but always drops
   one that arrived on someone else's `#s=` link.
+- The Content panel opens on the subject ("Who or what is it about?"), then story
+  type, note and line items; templates come last. While the subject is still an
+  example prompt, a hint says so and focusing selects it all, so the first
+  keystroke replaces it; once it is theirs, focus behaves normally.
 - Stickers can be added, selected, moved, rotated, resized, and removed. On
   touch, two fingers pinch to resize and twist to rotate; lifting one finger
   hands control back to dragging rather than ending the gesture.
