@@ -45,6 +45,9 @@ test runner — no test framework is installed, and Node strips the TypeScript i
 - `tests/story-modules.test.mjs` — share payload round-trip, sticker tilt and id
   shape, and the data invariants (every kind has copy for every tone, accents all
   have a hex colour, filter ids unique).
+- `tests/layout-css.test.mjs` — replays the cascade of `app/globals.css` at given
+  widths, since jsdom does no layout: one column up to 820px, two above, canvas
+  first and its dock sticky when stacked, no `overflow: hidden` ancestor.
 
 `npm run test:unit` runs the vitest specs (`tests/**/*.test.tsx`) in jsdom via
 `vitest.config.ts` — kept separate from `vite.config.ts`, whose Cloudflare and RSC
@@ -87,6 +90,18 @@ The local development server normally runs at `http://localhost:3000`.
 
 - The main editor is a client component and keeps the active draft in React state.
 - Receipt lines can be reordered with drag and drop.
+- Up to 820px wide the layout stacks with the receipt FIRST, and its action dock
+  (Edit / Add sticker / Remix / Share) sticks to the bottom of the screen while the
+  canvas is in view. Opening a tool from the receipt scrolls the tool panel into
+  view when it is off-screen. Sticky depends on `.single-screen` and the canvas
+  using `overflow: clip`, not `hidden` — `hidden` makes them scroll containers.
+- The app's own words may be replaced; the person's may not. `app/lib/remix.ts`
+  tells them apart: a line is a sample only if label AND quantity match a seeded
+  line, a shipped template line, or the + Add placeholder. Remix / Generate /
+  changing tone re-roll sample lines only, in place, and say what they kept.
+  Switching story type swaps the subject only while it is still an example
+  prompt. Applying a template keeps a subject the person typed, but always drops
+  one that arrived on someone else's `#s=` link.
 - Stickers can be added, selected, moved, rotated, resized, and removed. On
   touch, two fingers pinch to resize and twist to rotate; lifting one finger
   hands control back to dragging rather than ending the gesture.
@@ -172,6 +187,23 @@ The local development server normally runs at `http://localhost:3000`.
    structure; that it scans back to the exact link is a browser check
    (`BarcodeDetector`).
 7. Build a remixable public gallery only with explicit consent and abuse-reporting controls.
+
+## Known issues
+
+- `--font-geist-mono` and `--font-geist-sans` are never defined (a leftover of the
+  Next.js template's `next/font`). About 50 rules use them inside the `font`
+  shorthand, which makes the whole declaration invalid at computed-value time, so
+  those elements silently inherit their parent's font and size instead of, say,
+  the intended 7–9px mono. This is how both `/` and `/studio` have always rendered,
+  so fixing it is a visible redesign of many labels, not a bug fix — decide it on
+  purpose. Until then, do not write new `font:` shorthands with these variables;
+  set `font-family` and `font-size` separately.
+- As of 2026-10-05 the production URL shows a "Log in to access" ChatGPT gate
+  before the app. If that applies to everyone, a recipient of a shared link must
+  log in first, which breaks the no-sign-up share loop. It is a Sites access
+  setting, not code.
+- A receipt's issue date (`24 AUG 2026`, `receiptChrome.issuedOn`) is the same on
+  every receipt and cannot be edited; its number only changes on Remix.
 
 ## Definition of done
 

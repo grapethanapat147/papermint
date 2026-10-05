@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import StoriesHome from "../app/page";
 import { builtInTemplates } from "../app/data/templates";
+import { encodeStory } from "../app/lib/share";
 import { MAX_SAVED_TEMPLATES } from "../app/lib/storage";
 
 const receipt = () => document.querySelector("#story-receipt") as HTMLElement;
@@ -32,13 +33,25 @@ describe("built-in templates", () => {
     expect(receipt().textContent).toContain(template.note);
   });
 
-  test("applying one resets the subject instead of carrying someone else's", () => {
+  test("applying one over someone else's shared story drops their subject", async () => {
+    window.location.hash = `#s=${encodeStory({
+      kind: "work", names: "SOMEONE ELSE'S NAMES", note: "Their note.", tone: "funny", stickers: [],
+      items: [{ id: "i1", label: "Their line", quantity: "× 1" }], total: "Their total.", edition: 7,
+    })}`;
     render(<StoriesHome />);
-    const subject = (document.querySelector(".diy-panel .diy-field input") as HTMLInputElement);
-    fireEvent.change(subject, { target: { value: "MY PRIVATE SUBJECT" } });
+    await waitFor(() => expect(receipt().textContent).toContain("SOMEONE ELSE'S NAMES"));
 
     fireEvent.click(within(picker()).getByRole("button", { name: /Launch week/ }));
-    expect(receipt().textContent).not.toContain("MY PRIVATE SUBJECT");
+    expect(receipt().textContent).not.toContain("SOMEONE ELSE'S NAMES");
+  });
+
+  test("applying one keeps a subject this person typed", () => {
+    render(<StoriesHome />);
+    const subject = (document.querySelector(".diy-panel .diy-field input") as HTMLInputElement);
+    fireEvent.change(subject, { target: { value: "MY OWN SUBJECT" } });
+
+    fireEvent.click(within(picker()).getByRole("button", { name: /Launch week/ }));
+    expect(receipt().textContent).toContain("MY OWN SUBJECT");
   });
 
   test("shipped templates cannot be deleted", () => {

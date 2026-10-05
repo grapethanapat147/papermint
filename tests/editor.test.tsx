@@ -64,6 +64,54 @@ describe("story kind", () => {
   });
 });
 
+describe("keeping what they wrote", () => {
+  const content = () => panel("Receipt content") as HTMLElement;
+  const subject = () => within(content()).getByRole("textbox", { name: /SUBJECT/i }) as HTMLInputElement;
+  const lineInputs = () => within(content()).getAllByRole("textbox", { name: "Line item" }) as HTMLInputElement[];
+  const remix = () => [...document.querySelectorAll(".diy-actions button")].find((b) => b.textContent?.includes("Remix")) as HTMLElement;
+
+  test("a subject they typed survives switching the story type", () => {
+    render(<StoriesHome />);
+    fireEvent.change(subject(), { target: { value: "Grape & Nam" } });
+    fireEvent.click(screen.getByRole("button", { name: /Our Trip/i }));
+    expect(subject().value).toBe("Grape & Nam");
+    expect(receipt().textContent).toContain("Grape & Nam");
+    expect(receipt().textContent).toContain("Our Trip");
+  });
+
+  test("a subject they typed survives applying a template", () => {
+    render(<StoriesHome />);
+    fireEvent.change(subject(), { target: { value: "Grape & Nam" } });
+    const roadTrip = [...content().querySelectorAll("button")].find((b) => b.textContent?.includes("Road trip")) as HTMLElement;
+    fireEvent.click(roadTrip);
+    expect(receipt().textContent).toContain("Our Trip");
+    expect(subject().value).toBe("Grape & Nam");
+  });
+
+  test("remix keeps a line they wrote, re-rolls the rest, and says so", async () => {
+    render(<StoriesHome />);
+    // Another story type, so the remix draws from a different pool of lines.
+    fireEvent.click(screen.getByRole("button", { name: /My Month/i }));
+    const [, second] = lineInputs();
+    fireEvent.change(second, { target: { value: "Our first concert together" } });
+    const untouched = lineInputs()[0].value;
+    fireEvent.click(remix());
+    await waitFor(() => expect(document.querySelector(".remix-notice")?.textContent).toBe("Kept your line. Remixed the rest."), { timeout: 2000 });
+    expect(lineInputs()[1].value).toBe("Our first concert together");
+    expect(lineInputs()[0].value).not.toBe(untouched);
+    expect(document.querySelector(".remix-notice")?.getAttribute("role")).toBe("status");
+  });
+
+  test("remixing an untouched receipt shows no notice", async () => {
+    render(<StoriesHome />);
+    fireEvent.click(screen.getByRole("button", { name: /My Month/i }));
+    const before = lineInputs().map((input) => input.value);
+    fireEvent.click(remix());
+    await waitFor(() => expect(lineInputs().map((input) => input.value)).not.toEqual(before), { timeout: 2000 });
+    expect(document.querySelector(".remix-notice")?.textContent).toBe("");
+  });
+});
+
 describe("line items", () => {
   const rows = () => receipt().querySelectorAll(".life-items > div");
 

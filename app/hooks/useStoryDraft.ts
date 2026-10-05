@@ -1,12 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { kinds, storyLines, totals } from "../data/story";
+import { kinds, newLine, storyLines, totals } from "../data/story";
 import { makeId } from "../lib/random";
+import { isSampleName, remixItems } from "../lib/remix";
 import type {
   Accent, Decoration, EdgeStyle, FontStyle, PaperTone, ReceiptTemplate, SharedStory, StoryItem, StoryKind, Tone,
 } from "../types";
 
 const GENERATE_DELAY_MS = 650;
+const REMIX_NOTICE_MS = 3200;
 
 const seedItems = (kind: StoryKind, tone: Tone): StoryItem[] =>
   storyLines[kind][tone].map(([label, quantity]) => ({ id: makeId(), label, quantity }));
@@ -33,6 +35,9 @@ export function useStoryDraft() {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadedFromShare, setLoadedFromShare] = useState(false);
+  /** Says what a remix left alone, so keeping someone's lines never looks like a dead button. */
+  const [remixNotice, setRemixNotice] = useState("");
+  const remixNoticeTimer = useRef<number | undefined>(undefined);
 
   const activeKind = useMemo(() => kinds.find((entry) => entry.id === kind) ?? kinds[0], [kind]);
 
@@ -51,9 +56,12 @@ export function useStoryDraft() {
   }, []);
 
   /**
-   * Seeds the draft from a template. The subject is reset to the kind's prompt
-   * rather than carried over — a template is a starting point, not a copy of
-   * someone's finished receipt. Stickers and the photo are left alone.
+   * Seeds the draft from a template. A template never carries a subject — it is
+   * a starting point, not a copy of someone's finished receipt — so the subject
+   * becomes the kind's prompt. Two exceptions pull in opposite directions: a
+   * subject this person typed stays, but a subject that arrived on someone
+   * else's shared link always goes, so starting your own receipt from their
+   * story never keeps their names. Stickers and the photo are left alone.
    */
   const applyTemplate = useCallback((template: ReceiptTemplate) => {
     setKind(template.kind); setTone(template.tone);
@@ -62,9 +70,10 @@ export function useStoryDraft() {
     setEdgeStyle(template.edgeStyle); setTextScale(template.textScale);
     setNote(template.note); setTotal(template.total);
     setItems(template.items.map(({ label, quantity }) => ({ id: makeId(), label, quantity })));
-    setNames(kinds.find((entry) => entry.id === template.kind)?.prompt ?? "");
+    const prompt = kinds.find((entry) => entry.id === template.kind)?.prompt ?? "";
+    setNames((current) => loadedFromShare || isSampleName(current) ? prompt : current);
     setLoadedFromShare(false);
-  }, []);
+  }, [loadedFromShare]);
 
   /** Captures the current look and content skeleton. Drops ids, names and edition. */
   function toTemplate(name: string): Omit<ReceiptTemplate, "id"> {
@@ -79,17 +88,28 @@ export function useStoryDraft() {
   function chooseKind(next: StoryKind) {
     const selected = kinds.find((entry) => entry.id === next);
     setKind(next);
-    if (selected) setNames(selected.prompt);
+    // Swap the example subject for this type's example, but never a subject they typed.
+    if (selected) setNames((current) => isSampleName(current) ? selected.prompt : current);
   }
 
   /**
-   * Re-rolls the line items and total for a tone. Also drops the `#s=` hash,
-   * because once the draft has been regenerated the link no longer describes it.
+   * Re-rolls the sample line items and the total for a tone; lines the person
+   * wrote or edited stay where they are (see remixItems). Also drops the `#s=`
+   * hash, because once the draft has been regenerated the link no longer
+   * describes it.
    */
   function generateStory(nextTone = tone) {
     setIsGenerating(true);
     window.setTimeout(() => {
-      setItems(seedItems(kind, nextTone));
+      const { items: next, kept } = remixItems(items, seedItems(kind, nextTone));
+      setItems(next);
+      window.clearTimeout(remixNoticeTimer.current);
+      setRemixNotice(
+        !kept ? ""
+          : kept === next.length ? "Kept all your lines. Remixed the total."
+            : `Kept your ${kept === 1 ? "line" : `${kept} lines`}. Remixed the rest.`,
+      );
+      if (kept) remixNoticeTimer.current = window.setTimeout(() => setRemixNotice(""), REMIX_NOTICE_MS);
       const choices = totals[nextTone];
       setTotal(choices[(edition + kind.length + nextTone.length) % choices.length]);
       setEdition((current) => current + 1);
@@ -101,7 +121,7 @@ export function useStoryDraft() {
   }
 
   function appendLineItem(label: string) {
-    setItems((current) => [...current, { id: makeId(), label, quantity: "× +1" }]);
+    setItems((current) => [...current, { id: makeId(), label, quantity: newLine.quantity }]);
   }
 
   function updateLineItem(id: string, key: "label" | "quantity", value: string) {
@@ -149,7 +169,7 @@ export function useStoryDraft() {
 
   return {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
-    items, total, edition, draggedItemId, isGenerating, loadedFromShare, activeKind,
+    items, total, edition, draggedItemId, isGenerating, loadedFromShare, activeKind, remixNotice,
     setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
     setTextScale, setDraggedItemId,
     hydrateDraft, applyTemplate, toTemplate, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,

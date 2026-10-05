@@ -8,6 +8,9 @@ export const kinds: Array<{ id: StoryKind; label: string; icon: string; prompt: 
   { id: "era", label: "My Current Era", icon: "✦", prompt: "Learning to choose myself" },
 ];
 
+/** What "＋ Add" puts on the receipt before the person types anything. */
+export const newLine = { label: "A new memory", quantity: "× +1" };
+
 export const storyLines: Record<StoryKind, Record<Tone, Array<[string, string]>>> = {
   friendship: {
     warm: [["Late-night calls", "× 47"], ["Times you showed up", "× ∞"], ["Tiny things you remembered", "× 28"], ["Years of choosing each other", "× MORE"]],

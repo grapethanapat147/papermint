@@ -40,7 +40,7 @@ export function ReceiptCanvas({
 }: ReceiptCanvasProps) {
   const {
     tone, decoration, accent, paperTone, fontStyle, edgeStyle, textScale, isGenerating,
-    edition, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory,
+    edition, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory, remixNotice,
   } = draft;
   const {
     stickers, selectedStickerId, draggingStickerId,
@@ -104,7 +104,8 @@ export function ReceiptCanvas({
           {/* eslint-enable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
           <div className="life-barcode" /><small>{receiptChrome.disclaimer}</small>
         </article>
-        <div className="receipt-actions diy-actions"><button type="button" onClick={() => setActiveTool("content")}>✎ Edit</button><button type="button" onClick={() => setActiveTool("stickers")}>✦ Add sticker</button><button type="button" onClick={() => generateStory(tone)}>↻ Remix</button><button className="share-story" type="button" onClick={openShare}>Share ↗</button></div>
+        <div className="canvas-dock"><p className="remix-notice" role="status">{remixNotice}</p>
+        <div className="receipt-actions diy-actions"><button type="button" onClick={() => setActiveTool("content")}>✎ Edit</button><button type="button" onClick={() => setActiveTool("stickers")}>✦ Add sticker</button><button type="button" onClick={() => generateStory(tone)}>↻ Remix</button><button className="share-story" type="button" onClick={openShare}>Share ↗</button></div></div>
     </section>
   );
 }

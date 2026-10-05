@@ -1,4 +1,4 @@
-import { kinds } from "../data/story";
+import { kinds, newLine } from "../data/story";
 import { TemplatePicker } from "./TemplatePicker";
 import type { ReceiptTemplate } from "../types";
 import type { StoryItem, StoryKind, Tone } from "../types";
@@ -68,7 +68,7 @@ export function ContentPanel({
       <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
       <label className="diy-field"><span>SUBJECT</span><input value={names} onChange={(event) => setNames(event.target.value)} /></label>
       <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-      <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem("A new memory")}>＋ Add</button></div>
+      <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem(newLine.label)}>＋ Add</button></div>
       <div className="diy-item-list">{items.map((item, index) => (
         <div key={item.id} data-item-index={index} className={`diy-item-row${draggedItemId === item.id ? " dragging" : ""}`}>
           <button

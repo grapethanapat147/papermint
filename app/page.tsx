@@ -40,6 +40,7 @@ export default function StoriesHome() {
   const photo = usePhotoEditor();
   const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError, hydratePhoto } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
+  const toolTabsRef = useRef<HTMLElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
   const stickerLayer = useStickers(receiptRef, () => setActiveTool("stickers"));
@@ -146,6 +147,21 @@ export default function StoriesHome() {
     }
   }
 
+  /**
+   * Opens a tool from the receipt. On a phone the receipt sits above the tools,
+   * so the panel that just opened would be off-screen: bring it into view, the
+   * same way on every width, by checking where it actually is.
+   */
+  function openTool(tool: ToolTab) {
+    setActiveTool(tool);
+    const tabs = toolTabsRef.current;
+    if (!tabs) return;
+    const box = tabs.getBoundingClientRect();
+    if (box.top >= 0 && box.bottom <= window.innerHeight) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    tabs.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }
+
   function addLineItem() {
     if (!newLine.trim()) return;
     appendLineItem(newLine.trim());
@@ -204,7 +220,7 @@ export default function StoriesHome() {
           <h1>Design it<br /><em>your way.</em></h1>
           <p>Click a tool, drag pieces around, and build a receipt that feels completely yours.</p>
 
-          <nav className="diy-tool-tabs" aria-label="Design tools">
+          <nav ref={toolTabsRef} className="diy-tool-tabs" aria-label="Design tools">
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
@@ -215,10 +231,10 @@ export default function StoriesHome() {
           {activeTool === "photo" && <PhotoPanel photo={photo} />}
 
           {activeTool === "stickers" && <StickerPanel stickers={stickers} selectedSticker={selectedSticker} customStickerText={customStickerText} setCustomStickerText={setCustomStickerText} addSticker={addSticker} updateSelectedSticker={updateSelectedSticker} removeSelectedSticker={removeSelectedSticker} />}
-          <small className="privacy-note">DIY changes stay on this device. Shared links carry the receipt design, but not uploaded photos.</small>
+          <small className="privacy-note">DIY changes stay on this device. Story links carry the receipt design, not your photo. Only a handoff link you create carries the photo, for 24 hours.</small>
         </div>
 
-        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={setActiveTool} openShare={() => setShareOpen(true)} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
+        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={openTool} openShare={() => setShareOpen(true)} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
       </section>
 
       {addOpen && <AddLineModal closeModal={() => setAddOpen(false)} addInputRef={addInputRef} newLine={newLine} setNewLine={setNewLine} addLineItem={addLineItem} />}
