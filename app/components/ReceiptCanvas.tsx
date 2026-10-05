@@ -14,6 +14,8 @@ type ReceiptCanvasProps = {
   /** Needed by the sticker hook to turn pointer coordinates into percentages. */
   receiptRef: RefObject<HTMLElement | null>;
   setActiveTool: (tool: ToolTab) => void;
+  /** Opens Content with the subject field focused — for a tap on the names. */
+  editSubject: () => void;
   openShare: () => void;
   undo: () => void;
   redo: () => void;
@@ -36,7 +38,7 @@ function releasePointer(element: Element, pointerId: number) {
 }
 
 export function ReceiptCanvas({
-  draft, stickerLayer, photo, receiptRef, setActiveTool, openShare, undo, redo, canUndo, canRedo,
+  draft, stickerLayer, photo, receiptRef, setActiveTool, editSubject, openShare, undo, redo, canUndo, canRedo,
 }: ReceiptCanvasProps) {
   const {
     tone, decoration, accent, paperTone, fontStyle, edgeStyle, textScale, isGenerating,
@@ -73,7 +75,7 @@ export function ReceiptCanvas({
               duplicate tab stops on a preview and strip the heading, paragraph and list
               semantics screen readers rely on to read the receipt itself. */}
           {/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
-          <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{names || receiptChrome.fallbackNames}</p>
+          <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={editSubject}>{names || receiptChrome.fallbackNames}</p>
           <div className="life-date"><span>{receiptChrome.issuedLabel}</span><span>{receiptChrome.issuedOn}</span></div>
           {photoData && <div
             className="life-photo receipt-click-target"

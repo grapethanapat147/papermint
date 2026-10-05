@@ -86,6 +86,17 @@ describe("the subject comes first", () => {
     expect([subject().selectionStart, subject().selectionEnd]).toEqual([0, subject().value.length]);
   });
 
+  test("tapping the names on the receipt opens Content with the subject focused", () => {
+    render(<StoriesHome />);
+    fireEvent.click(tab("Stickers"));
+    expect(panel("Receipt content")).toBeNull();
+
+    fireEvent.click(receipt().querySelector("h2 + p") as HTMLElement);
+    expect(document.activeElement).toBe(subject());
+    // Still the example, so it is selected and the first keystroke replaces it.
+    expect([subject().selectionStart, subject().selectionEnd]).toEqual([0, subject().value.length]);
+  });
+
   test("once it is theirs, the hint goes and focusing leaves the caret alone", () => {
     render(<StoriesHome />);
     fireEvent.change(subject(), { target: { value: "Grape & Nam" } });

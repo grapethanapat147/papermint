@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ContentPanel } from "./components/ContentPanel";
 import { PhotoPanel } from "./components/PhotoPanel";
 import { AddLineModal } from "./components/AddLineModal";
@@ -16,6 +17,7 @@ import { useTemplates } from "./hooks/useTemplates";
 import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import { createHandoff, fetchHandoff, handoffUrl } from "./lib/handoff";
+import { reveal } from "./lib/reveal";
 import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
 
@@ -41,6 +43,7 @@ export default function StoriesHome() {
   const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError, hydratePhoto } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
   const toolTabsRef = useRef<HTMLElement>(null);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
   const receiptRef = useRef<HTMLElement>(null);
 
   const stickerLayer = useStickers(receiptRef, () => setActiveTool("stickers"));
@@ -154,12 +157,21 @@ export default function StoriesHome() {
    */
   function openTool(tool: ToolTab) {
     setActiveTool(tool);
-    const tabs = toolTabsRef.current;
-    if (!tabs) return;
-    const box = tabs.getBoundingClientRect();
-    if (box.top >= 0 && box.bottom <= window.innerHeight) return;
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    tabs.scrollIntoView?.({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    if (toolTabsRef.current) reveal(toolTabsRef.current, "start");
+  }
+
+  /**
+   * Tapping the names on the receipt goes straight to the field that edits them.
+   * The panel is rendered synchronously so focus happens inside the tap itself:
+   * iOS only raises the keyboard for focus given during a user gesture. While the
+   * subject is still the example, focusing it selects it all (see ContentPanel).
+   */
+  function editSubject() {
+    flushSync(() => setActiveTool("content"));
+    const input = subjectInputRef.current;
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    reveal(input, "center");
   }
 
   function addLineItem() {
@@ -224,7 +236,7 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <ContentPanel isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
+          {activeTool === "content" && <ContentPanel subjectInputRef={subjectInputRef} isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
 
           {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 
@@ -234,7 +246,7 @@ export default function StoriesHome() {
           <small className="privacy-note">DIY changes stay on this device. Story links carry the receipt design, not your photo. Only a handoff link you create carries the photo, for 24 hours.</small>
         </div>
 
-        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={openTool} openShare={() => setShareOpen(true)} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
+        <ReceiptCanvas draft={draft} stickerLayer={stickerLayer} photo={photo} receiptRef={receiptRef} setActiveTool={openTool} editSubject={editSubject} openShare={() => setShareOpen(true)} undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
       </section>
 
       {addOpen && <AddLineModal closeModal={() => setAddOpen(false)} addInputRef={addInputRef} newLine={newLine} setNewLine={setNewLine} addLineItem={addLineItem} />}

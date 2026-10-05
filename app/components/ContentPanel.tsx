@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 
 import { kinds, newLine } from "../data/story";
 import { isSampleName } from "../lib/remix";
@@ -7,6 +7,8 @@ import type { ReceiptTemplate } from "../types";
 import type { StoryItem, StoryKind, Tone } from "../types";
 
 type ContentPanelProps = {
+  /** Lets a tap on the names printed on the receipt focus this field. */
+  subjectInputRef: RefObject<HTMLInputElement | null>;
   isGenerating: boolean;
   generateStory: (tone?: Tone) => void;
   kind: StoryKind;
@@ -59,6 +61,7 @@ function rowIndexAt(x: number, y: number): number | null {
 }
 
 export function ContentPanel({
+  subjectInputRef,
   isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote,
   items, appendLineItem, updateLineItem, removeLineItem,
   templates, templatesFull, applyTemplate, saveTemplate, deleteTemplate,
@@ -74,11 +77,13 @@ export function ContentPanel({
           needs. While it still holds the example, a click selects it all so the
           first keystroke replaces it, and a hint says it is only an example. */}
       <label className="diy-field subject-field"><span>WHO OR WHAT IS IT ABOUT?</span><input
+        ref={subjectInputRef}
         value={names}
         aria-describedby={sampleSubject ? "subject-hint" : undefined}
         onChange={(event) => setNames(event.target.value)}
         onFocus={(event) => { if (sampleSubject) { event.target.select(); selectedOnFocus.current = true; } }}
         onMouseUp={(event) => { if (selectedOnFocus.current) { event.preventDefault(); selectedOnFocus.current = false; } }}
+        onBlur={() => { selectedOnFocus.current = false; }}
       /></label>
       {sampleSubject && <small className="field-hint" id="subject-hint">That&apos;s an example. Replace it with your own names or title.</small>}
       <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
