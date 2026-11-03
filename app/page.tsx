@@ -18,6 +18,7 @@ import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import { createHandoff, fetchHandoff, handoffUrl } from "./lib/handoff";
 import { reveal } from "./lib/reveal";
+import { decodeLook, lookUrl, storyFromLook } from "./lib/look";
 import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
 
@@ -39,6 +40,10 @@ export default function StoriesHome() {
   const [handoffError, setHandoffError] = useState("");
   const [handoff, setHandoff] = useState<{ url: string; expiresAt: number } | null>(null);
   const [handoffPending, setHandoffPending] = useState(false);
+  /** Prints a "make your own" QR under exported images. On by default; it carries only the look. */
+  const [qrOnImage, setQrOnImage] = useState(true);
+  /** The page was opened from a scanned look (`#t=`), so it says so once. */
+  const [lookFromLink, setLookFromLink] = useState(false);
   const photo = usePhotoEditor();
   const { photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, setPhotoError, hydratePhoto } = photo;
   const addInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +102,20 @@ export default function StoriesHome() {
       hydrateStickers(shared.stickers ?? []);
       return;
     }
+    // A scanned look from someone's image. It never carries their words, and a
+    // draft already on this device keeps its own; only the look changes.
+    const scanned = window.location.hash.match(/^#t=([^&]+)/);
+    const look = scanned ? decodeLook(scanned[1]) : null;
+    if (look) {
+      resetHistory();
+      applyStory(storyFromLook(look, loadDraft()));
+      // The hash only exists after mount; reading it during render would desync hydration.
+      /* eslint-disable-next-line react-hooks/set-state-in-effect */
+      setLookFromLink(true);
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
+
     const saved = loadDraft();
     if (saved) {
       resetHistory();
@@ -210,6 +229,9 @@ export default function StoriesHome() {
       {
         kind, edition, accent, paperTone, decoration, fontStyle, textScale,
         activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
+        qrUrl: qrOnImage
+          ? lookUrl(`${window.location.origin}${window.location.pathname}`, { kind, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale })
+          : null,
       },
       setPhotoError,
       preset,
@@ -225,6 +247,7 @@ export default function StoriesHome() {
       </header>
 
       {loadedFromShare && <div className="invite-banner"><span>✦</span><p><strong>You were invited into this story.</strong> Add one memory, then pass it on.</p><button type="button" onClick={() => setAddOpen(true)}>Add your line item →</button></div>}
+      {lookFromLink && !loadedFromShare && <div className="invite-banner"><span>✦</span><p><strong>You&apos;re trying a look someone shared.</strong> Their words stay with them; put your own story on it.</p><button type="button" onClick={() => { setLookFromLink(false); editSubject(); }}>Make it yours →</button></div>}
 
       <section className="stories-hero webapp-workspace">
         <div className="stories-intro webapp-controls">
@@ -251,7 +274,7 @@ export default function StoriesHome() {
 
       {addOpen && <AddLineModal closeModal={() => setAddOpen(false)} addInputRef={addInputRef} newLine={newLine} setNewLine={setNewLine} addLineItem={addLineItem} />}
 
-      {shareOpen && <ShareModal closeModal={() => { setShareOpen(false); setHandoff(null); setHandoffError(""); }} startHandoff={startHandoff} handoff={handoff} handoffPending={handoffPending} handoffError={handoffError} activeKind={activeKind} names={names} items={items} nativeShare={nativeShare} copyStoryLink={copyStoryLink} copied={copied} downloadStory={downloadStory} photoData={photoData} />}
+      {shareOpen && <ShareModal closeModal={() => { setShareOpen(false); setHandoff(null); setHandoffError(""); }} startHandoff={startHandoff} handoff={handoff} handoffPending={handoffPending} handoffError={handoffError} activeKind={activeKind} names={names} items={items} nativeShare={nativeShare} copyStoryLink={copyStoryLink} copied={copied} downloadStory={downloadStory} photoData={photoData} qrOnImage={qrOnImage} setQrOnImage={setQrOnImage} />}
     </main>
   );
 }

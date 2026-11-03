@@ -1,4 +1,5 @@
 import { accentHex, receiptChrome } from "../data/story";
+import { qrPath } from "./qr";
 import type { Accent, Decoration, DiySticker, FontStyle, PaperTone, StoryItem, StoryKind } from "../types";
 
 /** Everything downloadStory needs to paint the receipt, snapshotted from editor state. */
@@ -21,6 +22,8 @@ export type StorySnapshot = {
   photoOffsetY: number;
   photoFilterStyle: string;
   note: string;
+  /** A "make your own" link printed as a QR under the receipt; null leaves it off. */
+  qrUrl: string | null;
 };
 
 /** The receipt's own design space, independent of whatever canvas it lands on. */
@@ -44,7 +47,46 @@ export const exportPresets: Record<ExportPresetId, {
 };
 
 /**
- * Paints the receipt onto a 1080x1920 canvas and triggers the PNG download.
+ * True where a tap should open the share sheet with the image itself, so it goes
+ * straight into Instagram Stories, LINE or Photos. Phones only: desktop browsers
+ * that can share files would swap an expected download for a share dialog.
+ */
+export function canShareImages(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  if (!window.matchMedia?.("(pointer: coarse)").matches) return false;
+  try {
+    return navigator.canShare?.({ files: [new File([], "probe.png", { type: "image/png" })] }) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/** Shares the PNG where the device can, otherwise downloads it. Cancelling the sheet is not an error. */
+export async function deliverPng(blob: Blob, filename: string): Promise<void> {
+  if (canShareImages()) {
+    const file = new File([blob], filename, { type: "image/png" });
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (error) {
+      if ((error as DOMException)?.name === "AbortError") return;
+      // NotAllowedError and friends — e.g. Safari deciding the tap was too long
+      // ago — fall through to a plain download so the image is never lost.
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = url;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Bottom band for the QR, as a share of the preset's height. */
+const QR_FOOTER = 0.13;
+
+/**
+ * Paints the receipt onto a 1080x1920 canvas, then shares or downloads the PNG.
  * Kept in sync with the visible preview by hand — any new editable element
  * must be drawn here too.
  */
@@ -55,7 +97,7 @@ export async function downloadStory(
 ) {
   const {
     kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-    activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
+    activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, qrUrl,
   } = snapshot;
   // Drawn at the original absolute coordinates on a transparent surface, then
   // composited into the chosen preset. Keeping the coordinates untouched is why
@@ -99,12 +141,12 @@ export async function downloadStory(
   const exportItems = items.slice(0, photoData ? 4 : 7);
   exportItems.forEach((item, index) => { const y = itemStartY + index * 115; context.fillStyle = "#343631"; context.fillText(item.label.slice(0, 34), 190, y); context.textAlign = "right"; context.font = "700 25px monospace"; context.fillText(item.quantity.slice(0, 12), 890, y); context.textAlign = "left"; context.font = "25px monospace"; });
   const totalY = itemStartY + exportItems.length * 115 + 20; context.fillStyle = "#2a2c28"; context.fillRect(180, totalY, 720, 4); context.font = "700 22px monospace"; context.fillText("TOTAL", 190, totalY + 75); context.textAlign = "right"; context.font = "italic 44px Georgia"; context.fillText(total.slice(0, 30), 890, totalY + 75); context.textAlign = "center";
-  // Sits between the total rule and the stamp, which is the only gap wide enough
-  // at every item count. On screen it sits beside the stamp instead.
+  // Its own line under the total row — it used to share the total's baseline and
+  // print over it. On screen it sits beside the stamp instead.
   context.textAlign = "center"; context.fillStyle = "#343631";
   context.font = `${fontStyle === "editorial" ? "italic " : ""}24px ${displayFont}`;
-  context.fillText((note || receiptChrome.fallbackNote).slice(0, 46), 540, totalY + 78);
-  context.strokeStyle = selectedAccent; context.lineWidth = 4; context.beginPath(); context.arc(540, totalY + 220, 93, 0, Math.PI * 2); context.stroke(); context.fillStyle = selectedAccent; context.font = "700 19px monospace"; context.fillText("STILL", 540, totalY + 205); context.fillText("ADDING UP", 540, totalY + 237);
+  context.fillText((note || receiptChrome.fallbackNote).slice(0, 46), 540, totalY + 128);
+  context.strokeStyle = selectedAccent; context.lineWidth = 4; context.beginPath(); context.arc(540, totalY + 250, 93, 0, Math.PI * 2); context.stroke(); context.fillStyle = selectedAccent; context.font = "700 19px monospace"; context.fillText("STILL", 540, totalY + 235); context.fillText("ADDING UP", 540, totalY + 267);
   context.fillStyle = "#77736b"; context.font = "20px monospace"; context.fillText("NOT A FINANCIAL DOCUMENT · JUST PROOF IT MATTERED", 540, photoData ? 1820 : 1700);
   stickers.forEach((sticker) => {
     context.save(); context.translate(120 + sticker.x / 100 * 840, 70 + sticker.y / 100 * 1780); context.rotate(sticker.rotation * Math.PI / 180);
@@ -131,15 +173,18 @@ export async function downloadStory(
     out.fillRect(0, 0, preset.width, preset.height);
   }
 
+  // "Receipt only" stays exactly the receipt; the QR needs a backdrop to sit on.
+  const footer = preset.backdrop && qrUrl ? Math.round(preset.height * QR_FOOTER) : 0;
+
   // Whole-receipt scale-to-fit: no preset re-flows the layout or loses content.
   const scale = Math.min(
     (preset.width - preset.padding * 2) / RECEIPT_W,
-    (preset.height - preset.padding * 2) / RECEIPT_H,
+    (preset.height - preset.padding * 2 - footer) / RECEIPT_H,
   );
   const drawnW = RECEIPT_W * scale;
   const drawnH = RECEIPT_H * scale;
   const destX = (preset.width - drawnW) / 2;
-  const destY = (preset.height - drawnH) / 2;
+  const destY = (preset.height - footer - drawnH) / 2;
 
   if (preset.backdrop) {
     out.save();
@@ -148,9 +193,37 @@ export async function downloadStory(
     out.restore();
   }
   out.drawImage(plate, RECEIPT_X, RECEIPT_Y, RECEIPT_W, RECEIPT_H, destX, destY, drawnW, drawnH);
+  if (footer && qrUrl) drawQrFooter(out, qrUrl, preset.width, preset.height - footer - preset.padding / 2, footer);
 
-  const link = document.createElement("a");
-  link.download = `papermint-${kind}-${edition}-${presetId}.png`;
-  link.href = target.toDataURL("image/png");
-  link.click();
+  const blob = await new Promise<Blob | null>((resolve) => target.toBlob(resolve, "image/png"));
+  if (blob) await deliverPng(blob, `papermint-${kind}-${edition}-${presetId}.png`);
+}
+
+/** A QR with "make your own" beside it, centred in the band under the receipt. */
+function drawQrFooter(out: CanvasRenderingContext2D, url: string, width: number, top: number, height: number) {
+  const { size, d } = qrPath(url);
+  const qr = Math.round(height * 0.8);
+  const gap = Math.round(qr * 0.14);
+  out.font = `700 ${Math.round(qr * 0.15)}px monospace`;
+  const heading = "MAKE YOUR OWN";
+  const sub = "Scan to try this look";
+  const headingW = out.measureText(heading).width;
+  out.font = `${Math.round(qr * 0.12)}px monospace`;
+  const textW = Math.max(headingW, out.measureText(sub).width);
+  const left = (width - (qr + gap + textW)) / 2;
+  const qrTop = top + (height - qr) / 2;
+
+  out.save();
+  out.translate(left, qrTop);
+  out.scale(qr / size, qr / size);
+  out.fillStyle = "#fff"; out.fillRect(0, 0, size, size);
+  out.fillStyle = "#000"; out.fill(new Path2D(d));
+  out.restore();
+
+  out.textAlign = "left"; out.textBaseline = "middle"; out.fillStyle = "#2a2c28";
+  out.font = `700 ${Math.round(qr * 0.15)}px monospace`;
+  out.fillText(heading, left + qr + gap, qrTop + qr * 0.38);
+  out.fillStyle = "#5e5c55";
+  out.font = `${Math.round(qr * 0.12)}px monospace`;
+  out.fillText(sub, left + qr + gap, qrTop + qr * 0.62);
 }

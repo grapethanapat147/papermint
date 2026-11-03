@@ -1006,6 +1006,8 @@ textarea { font: inherit; }
 .export-block { display: grid; gap: 6px; margin-top: 14px; }
 .export-heading { color: #77736b; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .export-sizes { display: flex; gap: 6px; }
+.export-qr { display: flex; align-items: flex-start; gap: 8px; color: #5e5c55; font-size: 11px; line-height: 1.4; cursor: pointer; }
+.export-qr input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--story-accent, #c05940); }
 .export-sizes button {
   flex: 1; display: grid; gap: 2px; min-height: 48px; padding: 8px 6px;
   border: 1px solid color-mix(in srgb, var(--story-accent) 28%, transparent);

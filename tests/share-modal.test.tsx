@@ -7,7 +7,7 @@ function renderModal(overrides: Partial<Parameters<typeof ShareModal>[0]> = {}) 
   const props: Parameters<typeof ShareModal>[0] = {
     closeModal: vi.fn(), activeKind: { icon: "♡", label: "Our Friendship" }, names: "Grape & Nam", items: [],
     nativeShare: vi.fn(), copyStoryLink: vi.fn(), copied: false, downloadStory: vi.fn(), photoData: null,
-    startHandoff: vi.fn(), handoff: null, handoffPending: false, handoffError: "",
+    startHandoff: vi.fn(), handoff: null, handoffPending: false, handoffError: "", qrOnImage: true, setQrOnImage: vi.fn(),
     ...overrides,
   };
   render(<ShareModal {...props} />);
@@ -22,6 +22,15 @@ describe("share modal", () => {
     expect(buttons.map((b) => b.querySelector("b")?.textContent)).toEqual(["Story", "Post", "Receipt only"]);
     fireEvent.click(buttons[1]);
     expect(props.downloadStory).toHaveBeenCalledWith("post");
+  });
+
+  test("the make-your-own QR is on by default and can be turned off", () => {
+    const props = renderModal();
+    const box = screen.getByRole("checkbox", { name: /make your own/i }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.closest("label")?.textContent).toMatch(/no names, lines or photo/);
+    fireEvent.click(box);
+    expect(props.setQrOnImage).toHaveBeenCalledWith(false);
   });
 
   test("with a photo, the note does not claim the photo never leaves the device", () => {

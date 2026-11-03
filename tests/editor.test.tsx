@@ -108,6 +108,48 @@ describe("the subject comes first", () => {
   });
 });
 
+describe("opening a scanned look (#t=)", () => {
+  const banner = () => [...document.querySelectorAll(".invite-banner")].find((b) => b.textContent?.includes("look someone shared"));
+
+  test("with no draft here, it lands on that kind in that look, says so, and clears the hash", async () => {
+    window.location.hash = "#t=tfbsrsr110";
+    render(<StoriesHome />);
+    await waitFor(() => expect(receipt().textContent).toContain("Our Trip"));
+    expect(document.querySelector(".diy-canvas")?.className).toContain("decor-botanical");
+    expect(document.querySelector(".diy-canvas")?.className).toContain("accent-sage");
+    expect(banner()).toBeTruthy();
+    expect(window.location.hash).toBe("");
+  });
+
+  test("a draft already on this device keeps its words and takes only the look", async () => {
+    saveDraft({
+      kind: "work", names: "Launch week crew", note: "Somehow survived.", tone: "funny", stickers: [],
+      items: [{ id: "i1", label: "Meetings that could be texts", quantity: "× 11" }], total: "Emotionally over budget.", edition: 901,
+    });
+    window.location.hash = "#t=tfbsrsr110";
+    render(<StoriesHome />);
+    await waitFor(() => expect(document.querySelector(".diy-canvas")?.className).toContain("decor-botanical"));
+    expect(receipt().textContent).toContain("Launch week crew");
+    expect(receipt().textContent).toContain("Work Survival");
+  });
+
+  test("its button lands in the subject field and the banner goes", async () => {
+    window.location.hash = "#t=tfbsrsr110";
+    render(<StoriesHome />);
+    await waitFor(() => expect(banner()).toBeTruthy());
+    fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: /Make it yours/ }));
+    expect((document.activeElement as HTMLInputElement).value).toBe("Chiang Mai with the best people");
+    expect(banner()).toBeUndefined();
+  });
+
+  test("a malformed look is ignored", () => {
+    window.location.hash = "#t=nonsense";
+    render(<StoriesHome />);
+    expect(receipt().textContent).toContain("Our Friendship");
+    expect(banner()).toBeUndefined();
+  });
+});
+
 describe("keeping what they wrote", () => {
   const content = () => panel("Receipt content") as HTMLElement;
   const subject = () => within(content()).getByRole("textbox", { name: /WHO OR WHAT IS IT ABOUT/i }) as HTMLInputElement;

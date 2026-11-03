@@ -121,7 +121,17 @@ The local development server normally runs at `http://localhost:3000`.
 - A device handoff (`?h=<id>`) carries the draft AND its photo through R2 for 24
   hours, with no account — the unguessable link is the only credential. The photo
   is downscaled on the device before upload. Precedence on load: `?h=` beats
-  `#s=`, which beats the saved draft.
+  `#s=`, which beats `#t=`, which beats the saved draft.
+- Exported Story and Post images carry a "make your own" QR in a band under the
+  receipt (on by default, a checkbox in the share modal turns it off; "Receipt
+  only" never has one). The QR opens `#t=<look>`: only the look, encoded one
+  letter per option (`app/lib/look.ts`, e.g. `tfbsrsr110`) so it stays a
+  version-5 QR that scans at phone size — never names, lines or the photo.
+  Opening it applies the look to the visitor's own draft if they have one, or
+  that kind's shipped template if not, and a banner says so.
+- On a phone (coarse pointer + Web Share with files), the export buttons open the
+  share sheet with the PNG itself — straight to Instagram, LINE or Photos;
+  elsewhere, or if the share is refused, they download (`deliverPng`).
 - Uploaded photos are intentionally local-only data URLs. They are not uploaded or included in the shared URL.
 - PNG export is rendered with Canvas 2D in `downloadStory`, which takes an
   export preset (story / post / receipt). Anything added to the receipt must be
