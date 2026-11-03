@@ -42,7 +42,7 @@ export function ReceiptCanvas({
 }: ReceiptCanvasProps) {
   const {
     tone, decoration, accent, paperTone, fontStyle, edgeStyle, textScale, isGenerating,
-    edition, issued, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory, remixNotice,
+    edition, issued, stamp, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory, remixNotice,
   } = draft;
   const {
     stickers, selectedStickerId, draggingStickerId,
@@ -102,7 +102,7 @@ export function ReceiptCanvas({
           ><img src={photoData} alt="Story moment" draggable={false} style={{ filter: photoFilterStyle, transform: photoTransform }} /><span>{receiptChrome.photoCaption}</span></div>}
           <div className="life-items receipt-click-target" onClick={() => setActiveTool("content")}>{items.map((item) => <div key={item.id} draggable onDragStart={(event) => { event.stopPropagation(); setDraggedItemId(item.id); }} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); reorderLineItem(item.id); }}><span><i>⠿</i>{item.label}</span><b>{item.quantity}</b></div>)}</div>
           <div className="life-total receipt-click-target" onClick={() => setActiveTool("style")}><span>{receiptChrome.totalLabel}</span><strong>{total}</strong></div>
-          <div className="life-footer"><span className="life-stamp receipt-click-target" onClick={() => setActiveTool("stickers")}>STILL<br />ADDING<br />UP</span><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{note || receiptChrome.fallbackNote}</p></div>
+          <div className="life-footer"><span className={`life-stamp receipt-click-target${stamp ? " custom-stamp" : ""}`} onClick={() => setActiveTool("stickers")}>{(stamp ? stamp.split(/\s+/) : receiptChrome.stamp).flatMap((word, index) => index ? [<br key={index} />, word] : [word])}</span><p className="receipt-click-target" onClick={() => setActiveTool("content")}>{note || receiptChrome.fallbackNote}</p></div>
           {/* eslint-enable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
           <div className="life-barcode" /><small>{receiptChrome.disclaimer}</small>
         </article>

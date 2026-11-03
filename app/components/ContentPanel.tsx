@@ -1,6 +1,7 @@
-import { useRef, type RefObject } from "react";
+import { useRef, useState, type FormEvent, type RefObject } from "react";
 
 import { kinds, newLine, receiptChrome } from "../data/story";
+import { MAX_DESCRIPTION } from "../lib/compose-shared";
 import { isSampleName } from "../lib/remix";
 import { TemplatePicker } from "./TemplatePicker";
 import type { ReceiptTemplate } from "../types";
@@ -9,6 +10,8 @@ import type { StoryItem, StoryKind, Tone } from "../types";
 type ContentPanelProps = {
   /** Lets a tap on the names printed on the receipt focus this field. */
   subjectInputRef: RefObject<HTMLInputElement | null>;
+  /** Sends a description to Claude and lays the draft onto the receipt; throws a message to show. */
+  composeStory: (description: string) => Promise<void>;
   isGenerating: boolean;
   generateStory: (tone?: Tone) => void;
   kind: StoryKind;
@@ -63,7 +66,7 @@ function rowIndexAt(x: number, y: number): number | null {
 }
 
 export function ContentPanel({
-  subjectInputRef,
+  subjectInputRef, composeStory,
   isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote, issued, setIssued,
   items, appendLineItem, updateLineItem, removeLineItem,
   templates, templatesFull, applyTemplate, saveTemplate, deleteTemplate,
@@ -72,9 +75,35 @@ export function ContentPanel({
   const sampleSubject = isSampleName(names);
   // Chrome and Safari clear a focus-time selection on the mouseup that follows.
   const selectedOnFocus = useRef(false);
+  const [description, setDescription] = useState("");
+  const [composing, setComposing] = useState(false);
+  const [composeError, setComposeError] = useState("");
+
+  async function submitDescription(event: FormEvent) {
+    event.preventDefault();
+    if (!description.trim() || composing) return;
+    setComposing(true);
+    setComposeError("");
+    try {
+      await composeStory(description.trim());
+    } catch (error) {
+      setComposeError(error instanceof Error ? error.message : "Claude couldn't write this one. Try again.");
+    } finally {
+      setComposing(false);
+    }
+  }
+
   return (
     <section className="diy-panel" aria-label="Receipt content">
       <div className="diy-panel-heading"><div><strong>Build your story</strong><small>Drag line items to reorder them.</small></div><button type="button" disabled={isGenerating} onClick={() => generateStory()}>{isGenerating ? "Printing…" : "↻ Generate"}</button></div>
+      {/* The fastest way to a receipt that is theirs: say what happened, Claude
+          drafts the lines. Same rule as Remix — their own words are never replaced. */}
+      <form className="ai-compose" onSubmit={submitDescription} aria-busy={composing}>
+        <label htmlFor="ai-description">✦ Describe it, and Claude writes the lines</label>
+        <textarea id="ai-description" rows={2} maxLength={MAX_DESCRIPTION} aria-describedby="ai-privacy" placeholder="e.g. ไปเชียงใหม่กับแก๊ง 3 วัน ฝนตกทุกวันแต่ขำทั้งทริป" value={description} onChange={(event) => setDescription(event.target.value)} />
+        <div className="ai-compose-row"><small id="ai-privacy">Only this text is sent to Claude (Anthropic). Your photo never is.</small><button type="submit" disabled={composing || !description.trim()}>{composing ? "Writing\u2026" : "Write it"}</button></div>
+        {composeError && <p className="photo-error" role="alert">{composeError}</p>}
+      </form>
       {/* First, because putting their own names on it is the one step every receipt
           needs. While it still holds the example, a click selects it all so the
           first keystroke replaces it, and a hint says it is only an example. */}

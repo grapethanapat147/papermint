@@ -2,7 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { kinds, newLine, storyLines, totals } from "../data/story";
 import { makeId } from "../lib/random";
-import { isSampleName, remixItems } from "../lib/remix";
+import type { Composed } from "../lib/compose-shared";
+import { isSampleName, markAsSample, remixItems } from "../lib/remix";
 import type {
   Accent, Decoration, EdgeStyle, FontStyle, PaperTone, ReceiptTemplate, SharedStory, StoryItem, StoryKind, Tone,
 } from "../types";
@@ -34,6 +35,8 @@ export function useStoryDraft() {
   const [edition, setEdition] = useState(824);
   /** Free text, e.g. "03 NOV 2026" or "YEAR 2026". Empty shows receiptChrome.issuedOn. */
   const [issued, setIssued] = useState("");
+  /** Claude's identity label for the stamp; empty prints receiptChrome.stamp. */
+  const [stamp, setStamp] = useState("");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadedFromShare, setLoadedFromShare] = useState(false);
@@ -53,7 +56,7 @@ export function useStoryDraft() {
     setDecoration(shared.decoration ?? "classic"); setAccent(shared.accent ?? "coral");
     setFontStyle(shared.fontStyle ?? "editorial"); setPaperTone(shared.paperTone ?? "cream");
     setEdgeStyle(shared.edgeStyle ?? "torn"); setTextScale(shared.textScale ?? 1.08);
-    setItems(shared.items); setTotal(shared.total); setEdition(shared.edition); setIssued(shared.issued ?? "");
+    setItems(shared.items); setTotal(shared.total); setEdition(shared.edition); setIssued(shared.issued ?? ""); setStamp(shared.stamp ?? "");
     setLoadedFromShare(fromShare);
   }, []);
 
@@ -105,13 +108,7 @@ export function useStoryDraft() {
     window.setTimeout(() => {
       const { items: next, kept } = remixItems(items, seedItems(kind, nextTone));
       setItems(next);
-      window.clearTimeout(remixNoticeTimer.current);
-      setRemixNotice(
-        !kept ? ""
-          : kept === next.length ? "Kept all your lines. Remixed the total."
-            : `Kept your ${kept === 1 ? "line" : `${kept} lines`}. Remixed the rest.`,
-      );
-      if (kept) remixNoticeTimer.current = window.setTimeout(() => setRemixNotice(""), REMIX_NOTICE_MS);
+      announceKept(kept, next.length);
       const choices = totals[nextTone];
       setTotal(choices[(edition + kind.length + nextTone.length) % choices.length]);
       setEdition((current) => current + 1);
@@ -120,6 +117,38 @@ export function useStoryDraft() {
       window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
       setIsGenerating(false);
     }, GENERATE_DELAY_MS);
+  }
+
+  function announceKept(kept: number, of: number) {
+    window.clearTimeout(remixNoticeTimer.current);
+    setRemixNotice(
+      !kept ? ""
+        : kept === of ? "Kept all your lines. Remixed the total."
+          : `Kept your ${kept === 1 ? "line" : `${kept} lines`}. Remixed the rest.`,
+    );
+    if (kept) remixNoticeTimer.current = window.setTimeout(() => setRemixNotice(""), REMIX_NOTICE_MS);
+  }
+
+  /**
+   * Lays Claude's draft onto the receipt under the same rule as Remix: it may
+   * replace the app's words, never the person's — their lines stay in place and
+   * a subject they typed is kept.
+   */
+  function applyComposed(composed: Composed) {
+    markAsSample(composed.items, composed.names);
+    const fresh = composed.items.map((line) => ({ id: makeId(), ...line }));
+    const { items: next, kept } = remixItems(items, fresh);
+    // A receipt trimmed below Claude's line count gets the rest appended.
+    const unused = fresh.filter((line) => !next.some((row) => row.label === line.label));
+    next.push(...unused.slice(0, Math.max(0, fresh.length - next.length)));
+    setItems(next);
+    announceKept(kept, next.length);
+    setNames((current) => isSampleName(current) ? composed.names : current);
+    setTotal(composed.total);
+    setNote(composed.note);
+    setStamp(composed.stamp);
+    setLoadedFromShare(false);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
   }
 
   function appendLineItem(label: string) {
@@ -171,10 +200,10 @@ export function useStoryDraft() {
 
   return {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
-    items, total, edition, issued, draggedItemId, isGenerating, loadedFromShare, activeKind, remixNotice,
+    items, total, edition, issued, stamp, draggedItemId, isGenerating, loadedFromShare, activeKind, remixNotice,
     setNames, setNote, setIssued, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
     setTextScale, setDraggedItemId,
-    hydrateDraft, applyTemplate, toTemplate, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
+    hydrateDraft, applyTemplate, applyComposed, toTemplate, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
     moveLineItem, nudgeLineItem, reorderLineItem,
   };
 }

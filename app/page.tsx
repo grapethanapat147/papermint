@@ -19,6 +19,7 @@ import { decodeStory, encodeStory } from "./lib/share";
 import { createHandoff, fetchHandoff, handoffUrl } from "./lib/handoff";
 import { reveal } from "./lib/reveal";
 import { formatIssued } from "./data/story";
+import { composeReceipt } from "./lib/compose";
 import { decodeLook, lookUrl, storyFromLook } from "./lib/look";
 import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
@@ -27,10 +28,10 @@ export default function StoriesHome() {
   const draft = useStoryDraft();
   const {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
-    items, total, edition, issued, isGenerating, loadedFromShare, activeKind,
+    items, total, edition, issued, stamp, isGenerating, loadedFromShare, activeKind,
     setNames, setNote, setIssued, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle, setTextScale,
     draggedItemId, setDraggedItemId, hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
-    moveLineItem, nudgeLineItem, applyTemplate, toTemplate,
+    moveLineItem, nudgeLineItem, applyTemplate, applyComposed, toTemplate,
   } = draft;
   const { templates, isFull: templatesFull, saveTemplate, deleteTemplate } = useTemplates();
   const [activeTool, setActiveTool] = useState<ToolTab>("content");
@@ -58,7 +59,7 @@ export default function StoriesHome() {
     addSticker, updateSelectedSticker, removeSelectedSticker, hydrateStickers,
   } = stickerLayer;
 
-  const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition, issued };
+  const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition, issued, stamp };
 
   /** Restores a snapshot without claiming it came from someone else's link. */
   const applyStory = useCallback((snapshot: SharedStory) => {
@@ -233,7 +234,7 @@ export default function StoriesHome() {
     return renderStoryPng(
       {
         kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-        activeKind, names, note, total, items, stickers, issued, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
+        activeKind, names, note, total, items, stickers, issued, stamp, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
         qrUrl: qrOnImage
           ? lookUrl(`${window.location.origin}${window.location.pathname}`, { kind, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale })
           : null,
@@ -264,7 +265,7 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <ContentPanel subjectInputRef={subjectInputRef} isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} issued={issued} setIssued={setIssued} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
+          {activeTool === "content" && <ContentPanel subjectInputRef={subjectInputRef} composeStory={async (description) => applyComposed(await composeReceipt(description, kind, tone))} isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} issued={issued} setIssued={setIssued} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
 
           {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 

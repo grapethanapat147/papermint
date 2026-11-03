@@ -16,6 +16,19 @@ const sampleLines = new Set<string>([
 
 const sampleNames = new Set(kinds.map((entry) => entry.prompt));
 
+/**
+ * Lines and a subject Claude wrote count as the app's words too, so the next
+ * Remix or AI draft may replace them while anything the person edits stays.
+ *
+ * shortcut: remembered for this page load only; after a reload, AI lines count
+ * as the person's own and are kept. Persist the marks with the draft if that
+ * starts to bite.
+ */
+export function markAsSample(lines: Array<Pick<StoryItem, "label" | "quantity">>, names?: string): void {
+  for (const line of lines) sampleLines.add(`${line.label}\u0000${line.quantity}`);
+  if (names) sampleNames.add(names);
+}
+
 /** True for a line exactly as the app wrote it; any edit, label or quantity, makes it theirs. */
 export function isSampleLine(item: Pick<StoryItem, "label" | "quantity">): boolean {
   return sampleLines.has(`${item.label}\u0000${item.quantity}`);

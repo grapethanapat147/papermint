@@ -775,6 +775,15 @@ textarea { font: inherit; }
 .diy-field > span,.diy-option > span,.diy-items-heading > span { color: #777169; font: 700 8px var(--font-geist-mono),monospace; letter-spacing: .09em; }
 .diy-field input,.diy-field textarea { min-height: 46px; padding: 12px 13px; border: 1px solid #cfc5b5; border-radius: 9px; color: #373833; background: #fffdf8; font-size: 13px; }
 .diy-field textarea { min-height: 66px; resize: vertical; }
+.ai-compose { display: grid; gap: 7px; margin: 4px 0 6px; padding: 12px; border: 1px solid color-mix(in srgb, var(--story-accent, #c05940) 30%, #d8cfc1); border-radius: 12px; background: color-mix(in srgb, var(--story-accent, #c05940) 5%, #fffdf8); }
+.ai-compose label { color: #373833; font-size: 12px; font-weight: 700; }
+.ai-compose textarea { min-height: 54px; padding: 10px 12px; border: 1px solid #cfc5b5; border-radius: 9px; color: #373833; background: #fffdf8; font-size: 13px; resize: vertical; }
+.ai-compose-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ai-compose-row small { color: #77736b; font-size: 10px; line-height: 1.4; }
+.ai-compose button { flex: none; min-height: 44px; padding: 0 16px; border: 0; border-radius: 9px; color: #fff; background: #292b27; font-size: 12px; font-weight: 700; cursor: pointer; }
+.ai-compose button:disabled { opacity: .45; cursor: default; }
+.ai-compose button:focus-visible, .ai-compose textarea:focus-visible { outline: 2px solid var(--story-accent, #c05940); outline-offset: 2px; }
+.life-stamp.custom-stamp { padding: 6px; font-size: 7px; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .subject-field { margin-top: 4px; }
 .subject-field input { font-size: 15px; }
 .field-hint { display: block; margin-top: 6px; color: #77736b; font-size: 11px; line-height: 1.4; }

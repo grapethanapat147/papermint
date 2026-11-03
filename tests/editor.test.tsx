@@ -68,9 +68,9 @@ describe("the subject comes first", () => {
   const content = () => panel("Receipt content") as HTMLElement;
   const subject = () => within(content()).getByRole("textbox", { name: /WHO OR WHAT IS IT ABOUT/i }) as HTMLInputElement;
 
-  test("it is the first field in the content panel, and templates come after the line items", () => {
+  test("it is the receipt's first field (only the describe-it box sits above), and templates come after the line items", () => {
     render(<StoriesHome />);
-    const fields = [...content().querySelectorAll("input, textarea")];
+    const fields = [...content().querySelectorAll("input, textarea")].filter((field) => !field.closest(".ai-compose"));
     expect(fields[0]).toBe(subject());
     const lastLine = within(content()).getAllByRole("textbox", { name: "Line item" }).pop() as HTMLElement;
     const picker = content().querySelector(".template-picker") as HTMLElement;
@@ -105,6 +105,66 @@ describe("the subject comes first", () => {
     subject().setSelectionRange(3, 3);
     fireEvent.focus(subject());
     expect([subject().selectionStart, subject().selectionEnd]).toEqual([3, 3]);
+  });
+});
+
+describe("Claude writes the lines (describe it)", () => {
+  const draft = {
+    names: "แก๊งเชียงใหม่",
+    items: [
+      { label: "ฝนตกทุกวัน", quantity: "× 3" },
+      { label: "ข้าวซอยที่กินไป", quantity: "× 7" },
+      { label: "มุกที่ขำทั้งทริป", quantity: "× ∞" },
+      { label: "รูปที่ไม่กล้าโพสต์", quantity: "× 42" },
+    ],
+    total: "คุ้มทุกหยดฝน", note: "เปียกแต่ไม่เคยเหงา", stamp: "สายลุย",
+  };
+  const content = () => panel("Receipt content") as HTMLElement;
+  const describeBox = () => within(content()).getByRole("textbox", { name: /Describe it/ });
+  const lines = () => within(content()).getAllByRole("textbox", { name: "Line item" }).map((input) => (input as HTMLInputElement).value);
+
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  test("lays the draft onto the receipt, keeping a line they wrote and a subject they typed", async () => {
+    const fetchMock = vi.fn(async () => Response.json(draft));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StoriesHome />);
+    const subject = within(content()).getByRole("textbox", { name: /WHO OR WHAT/ });
+    fireEvent.change(subject, { target: { value: "Grape & Nam" } });
+    fireEvent.change(within(content()).getAllByRole("textbox", { name: "Line item" })[1], { target: { value: "Our first concert" } });
+
+    fireEvent.change(describeBox(), { target: { value: "ไปเชียงใหม่กับแก๊ง ฝนตกทุกวัน" } });
+    fireEvent.click(within(content()).getByRole("button", { name: "Write it" }));
+
+    await waitFor(() => expect(lines()).toContain("ฝนตกทุกวัน"));
+    expect(lines()[1]).toBe("Our first concert");
+    expect((subject as HTMLInputElement).value).toBe("Grape & Nam");
+    expect(receipt().textContent).toContain("คุ้มทุกหยดฝน");
+    expect(receipt().querySelector(".life-stamp")?.textContent).toBe("สายลุย");
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).toEqual({ description: "ไปเชียงใหม่กับแก๊ง ฝนตกทุกวัน", kind: "friendship", tone: "warm" });
+  });
+
+  test("a second draft replaces the first one's lines, which were Claude's, not theirs", async () => {
+    const second = { ...draft, items: draft.items.map((item) => ({ ...item, label: `${item.label} 2` })) };
+    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json(draft)).mockResolvedValueOnce(Response.json(second));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StoriesHome />);
+    fireEvent.change(describeBox(), { target: { value: "trip" } });
+    fireEvent.click(within(content()).getByRole("button", { name: "Write it" }));
+    await waitFor(() => expect(lines()).toContain("ฝนตกทุกวัน"));
+    fireEvent.click(within(content()).getByRole("button", { name: "Write it" }));
+    await waitFor(() => expect(lines()).toContain("ฝนตกทุกวัน 2"));
+    expect(lines()).not.toContain("ฝนตกทุกวัน");
+  });
+
+  test("says why when it cannot write, and says the photo is never sent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "AI writing isn't set up on this site yet." }, { status: 503 })));
+    render(<StoriesHome />);
+    expect(content().textContent).toMatch(/photo never is/);
+    fireEvent.change(describeBox(), { target: { value: "trip" } });
+    fireEvent.click(within(content()).getByRole("button", { name: "Write it" }));
+    await waitFor(() => expect(within(content()).getByRole("alert").textContent).toBe("AI writing isn't set up on this site yet."));
   });
 });
 

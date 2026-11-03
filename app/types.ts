@@ -9,7 +9,7 @@ export type PaperTone = "cream" | "white" | "blush" | "sage";
 export type EdgeStyle = "torn" | "straight" | "rounded";
 export type StoryItem = { id: string; label: string; quantity: string };
 export type DiySticker = { id: string; symbol: string; label: string; x: number; y: number; size: number; rotation: number };
-export type SharedStory = { kind: StoryKind; names: string; note: string; tone: Tone; decoration?: Decoration; accent?: Accent; fontStyle?: FontStyle; paperTone?: PaperTone; edgeStyle?: EdgeStyle; textScale?: number; stickers?: DiySticker[]; items: StoryItem[]; total: string; edition: number; issued?: string };
+export type SharedStory = { kind: StoryKind; names: string; note: string; tone: Tone; decoration?: Decoration; accent?: Accent; fontStyle?: FontStyle; paperTone?: PaperTone; edgeStyle?: EdgeStyle; textScale?: number; stickers?: DiySticker[]; items: StoryItem[]; total: string; edition: number; issued?: string; stamp?: string };
 
 /**
  * A reusable starting point: how the receipt looks, plus a skeleton of what it

@@ -91,7 +91,7 @@ describe("receipt copy has one source", () => {
 
   test("an empty note falls back to the shared string, on screen and in export", () => {
     render(<StoriesHome />);
-    const note = document.querySelector(".diy-panel textarea") as HTMLTextAreaElement;
+    const note = [...document.querySelectorAll(".diy-panel label.diy-field")].find((label) => label.textContent?.startsWith("ONE-LINE NOTE"))?.querySelector("textarea") as HTMLTextAreaElement;
     fireEvent.change(note, { target: { value: "" } });
     expect((document.querySelector("#story-receipt") as HTMLElement).textContent).toContain(receiptChrome.fallbackNote);
   });

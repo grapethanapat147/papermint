@@ -41,3 +41,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# Local Worker secrets (e.g. ANTHROPIC_API_KEY for /api/compose)
+.dev.vars

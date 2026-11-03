@@ -19,6 +19,8 @@ Production site: https://papermint-receipt-studio.grapetnp147.chatgpt.site/
 - Cloudflare Workers / Sites hosting
 - Plain CSS in `app/globals.css`
 - Canvas 2D for PNG export
+- Claude (`claude-haiku-5-5`, via `@anthropic-ai/sdk`, server-side only) for
+  "Describe it" — `POST /api/compose`
 
 Node.js 22.13.0 or newer is required.
 
@@ -114,6 +116,18 @@ The local development server normally runs at `http://localhost:3000`.
   "YEAR 2026" works too. A new receipt is dated the day it is made, set after mount
   and absorbed into the undo baseline; a story saved or shared before the field
   existed has no `issued` and keeps printing `receiptChrome.issuedOn`.
+- "Describe it" (top of Content): a description of up to 280 characters goes to
+  `POST /api/compose`, which asks Claude for schema-bound JSON (subject, four
+  lines, total, note, stamp) at low effort; `app/lib/compose-shared.ts` re-checks
+  and clips every field to what the PNG prints. The draft lands under the Remix
+  rule — Claude's lines and subject are marked as samples (for this page load),
+  so a later Remix or draft may replace them, never the person's own. The stamp
+  ("STILL ADDING UP" by default) becomes Claude's identity label.
+  Off unless the deployment has an `ANTHROPIC_API_KEY` secret: the route answers
+  503 and the box says AI writing isn't set up. Locally, put the key in
+  `.dev.vars` (gitignored). There is no per-visitor rate limit (no KV) — only the
+  size cap, a same-origin check and the cheap model — so set a monthly spend
+  limit on the key in the Claude Console.
 - Six story types: the five originals plus "My Year", whose template ("Year in
   review") is listed first for the year-end recap season.
 - Stickers can be added, selected, moved, rotated, resized, and removed. On
@@ -146,6 +160,8 @@ The local development server normally runs at `http://localhost:3000`.
 
 ## Engineering constraints
 
+- Only text ever goes to Claude. Never send the photo to `/api/compose` or any
+  model without the same privacy design the next rule asks for.
 - Do not add user photos to URLs, analytics, or remote storage without an explicit
   privacy and persistence design. The one sanctioned exception is the `?h=` device
   handoff: downscaled, 24-hour retention, no account. Anything longer or broader

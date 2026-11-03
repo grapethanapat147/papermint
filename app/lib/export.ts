@@ -22,6 +22,8 @@ export type StorySnapshot = {
   photoOffsetY: number;
   photoFilterStyle: string;
   note: string;
+  /** Claude's identity label; empty prints the default STILL / ADDING UP. */
+  stamp: string;
   /** Free-text issue date; empty prints receiptChrome.issuedOn. */
   issued: string;
   /** A "make your own" link printed as a QR under the receipt; null leaves it off. */
@@ -99,7 +101,7 @@ export async function downloadStory(
 ) {
   const {
     kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-    activeKind, names, note, total, items, stickers, issued, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, qrUrl,
+    activeKind, names, note, total, items, stickers, issued, stamp, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, qrUrl,
   } = snapshot;
   // Drawn at the original absolute coordinates on a transparent surface, then
   // composited into the chosen preset. Keeping the coordinates untouched is why
@@ -148,7 +150,7 @@ export async function downloadStory(
   context.textAlign = "center"; context.fillStyle = "#343631";
   context.font = `${fontStyle === "editorial" ? "italic " : ""}24px ${displayFont}`;
   context.fillText((note || receiptChrome.fallbackNote).slice(0, 46), 540, totalY + 128);
-  context.strokeStyle = selectedAccent; context.lineWidth = 4; context.beginPath(); context.arc(540, totalY + 250, 93, 0, Math.PI * 2); context.stroke(); context.fillStyle = selectedAccent; context.font = "700 19px monospace"; context.fillText("STILL", 540, totalY + 235); context.fillText("ADDING UP", 540, totalY + 267);
+  context.strokeStyle = selectedAccent; context.lineWidth = 4; context.beginPath(); context.arc(540, totalY + 250, 93, 0, Math.PI * 2); context.stroke(); context.fillStyle = selectedAccent; drawStamp(context, stamp, totalY + 250);
   context.fillStyle = "#77736b"; context.font = "20px monospace"; context.fillText("NOT A FINANCIAL DOCUMENT · JUST PROOF IT MATTERED", 540, photoData ? 1820 : 1700);
   stickers.forEach((sticker) => {
     context.save(); context.translate(120 + sticker.x / 100 * 840, 70 + sticker.y / 100 * 1780); context.rotate(sticker.rotation * Math.PI / 180);
@@ -199,6 +201,19 @@ export async function downloadStory(
 
   const blob = await new Promise<Blob | null>((resolve) => target.toBlob(resolve, "image/png"));
   if (blob) await deliverPng(blob, `papermint-${kind}-${edition}-${presetId}.png`);
+}
+
+/** The stamp's words in two balanced lines, shrunk to sit inside the 93px circle. */
+function drawStamp(context: CanvasRenderingContext2D, stamp: string, centerY: number) {
+  const words = stamp ? stamp.split(/\s+/) : ["STILL", "ADDING", "UP"];
+  const split = words.length > 1 ? Math.ceil(words.length / 2) : 1;
+  const lines = [words.slice(0, split).join(" "), words.slice(split).join(" ")].filter(Boolean);
+  let size = 19;
+  context.font = `700 ${size}px monospace`;
+  const widest = Math.max(...lines.map((line) => context.measureText(line).width));
+  if (widest > 150) { size = Math.max(11, Math.floor(size * 150 / widest)); context.font = `700 ${size}px monospace`; }
+  const step = size * 1.7;
+  lines.forEach((line, index) => context.fillText(line, 540, centerY - ((lines.length - 1) * step) / 2 + index * step + size * 0.35));
 }
 
 /** A QR with "make your own" beside it, centred in the band under the receipt. */
