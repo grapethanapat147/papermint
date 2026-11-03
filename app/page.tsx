@@ -18,6 +18,7 @@ import { downloadStory as renderStoryPng } from "./lib/export";
 import { decodeStory, encodeStory } from "./lib/share";
 import { createHandoff, fetchHandoff, handoffUrl } from "./lib/handoff";
 import { reveal } from "./lib/reveal";
+import { formatIssued } from "./data/story";
 import { decodeLook, lookUrl, storyFromLook } from "./lib/look";
 import { loadDraft, saveDraft } from "./lib/storage";
 import type { SharedStory, ToolTab } from "./types";
@@ -26,8 +27,8 @@ export default function StoriesHome() {
   const draft = useStoryDraft();
   const {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
-    items, total, edition, isGenerating, loadedFromShare, activeKind,
-    setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle, setTextScale,
+    items, total, edition, issued, isGenerating, loadedFromShare, activeKind,
+    setNames, setNote, setIssued, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle, setTextScale,
     draggedItemId, setDraggedItemId, hydrateDraft, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
     moveLineItem, nudgeLineItem, applyTemplate, toTemplate,
   } = draft;
@@ -57,7 +58,7 @@ export default function StoriesHome() {
     addSticker, updateSelectedSticker, removeSelectedSticker, hydrateStickers,
   } = stickerLayer;
 
-  const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition };
+  const story: SharedStory = { kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale, stickers, items, total, edition, issued };
 
   /** Restores a snapshot without claiming it came from someone else's link. */
   const applyStory = useCallback((snapshot: SharedStory) => {
@@ -108,7 +109,9 @@ export default function StoriesHome() {
     const look = scanned ? decodeLook(scanned[1]) : null;
     if (look) {
       resetHistory();
-      applyStory(storyFromLook(look, loadDraft()));
+      const saved = loadDraft();
+      applyStory(storyFromLook(look, saved));
+      if (!saved) setIssued(formatIssued(new Date()));
       // The hash only exists after mount; reading it during render would desync hydration.
       /* eslint-disable-next-line react-hooks/set-state-in-effect */
       setLookFromLink(true);
@@ -117,11 +120,13 @@ export default function StoriesHome() {
     }
 
     const saved = loadDraft();
-    if (saved) {
-      resetHistory();
-      applyStory(saved);
-    }
-  }, [applyStory, hydrateDraft, hydratePhoto, hydrateStickers, resetHistory]);
+    resetHistory();
+    if (saved) applyStory(saved);
+    // A new receipt is dated the day it is made. Set after mount (the server's
+    // date and timezone are not the visitor's), and absorbed into the history
+    // baseline by resetHistory, so it is not an undo step.
+    else setIssued(formatIssued(new Date()));
+  }, [applyStory, hydrateDraft, hydratePhoto, hydrateStickers, resetHistory, setIssued]);
 
   // Autosave, coalesced so a burst of typing writes once. Photos are excluded by
   // the SharedStory shape itself, which also keeps this well inside the quota.
@@ -228,7 +233,7 @@ export default function StoriesHome() {
     return renderStoryPng(
       {
         kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-        activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
+        activeKind, names, note, total, items, stickers, issued, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle,
         qrUrl: qrOnImage
           ? lookUrl(`${window.location.origin}${window.location.pathname}`, { kind, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale })
           : null,
@@ -259,7 +264,7 @@ export default function StoriesHome() {
             {([{id:"content",icon:"✎",label:"Content"},{id:"style",icon:"◐",label:"Style"},{id:"photo",icon:"◎",label:"Photo"},{id:"stickers",icon:"✦",label:"Stickers"}] as Array<{id:ToolTab;icon:string;label:string}>).map((tool) => <button type="button" key={tool.id} className={activeTool === tool.id ? "active" : ""} aria-pressed={activeTool === tool.id} onClick={() => setActiveTool(tool.id)}><span>{tool.icon}</span><b>{tool.label}</b></button>)}
           </nav>
 
-          {activeTool === "content" && <ContentPanel subjectInputRef={subjectInputRef} isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
+          {activeTool === "content" && <ContentPanel subjectInputRef={subjectInputRef} isGenerating={isGenerating} generateStory={generateStory} kind={kind} chooseKind={chooseKind} names={names} setNames={setNames} note={note} setNote={setNote} issued={issued} setIssued={setIssued} items={items} appendLineItem={appendLineItem} updateLineItem={updateLineItem} removeLineItem={removeLineItem} templates={templates} templatesFull={templatesFull} applyTemplate={applyTemplate} saveTemplate={(name) => saveTemplate(toTemplate(name))} deleteTemplate={deleteTemplate} draggedItemId={draggedItemId} setDraggedItemId={setDraggedItemId} moveLineItem={moveLineItem} nudgeLineItem={nudgeLineItem} />}
 
           {activeTool === "style" && <StylePanel decoration={decoration} setDecoration={setDecoration} paperTone={paperTone} setPaperTone={setPaperTone} fontStyle={fontStyle} setFontStyle={setFontStyle} edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} accent={accent} setAccent={setAccent} tone={tone} generateStory={generateStory} textScale={textScale} setTextScale={setTextScale} />}
 

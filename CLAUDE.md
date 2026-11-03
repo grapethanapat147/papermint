@@ -110,6 +110,12 @@ The local development server normally runs at `http://localhost:3000`.
   with `flushSync` so the focus lands inside the tap, which iOS needs before it
   will raise the keyboard — and scrolls to it only if it is out of view
   (`app/lib/reveal.ts`, which also checks the desktop controls column).
+- The issue date is free text (`issued` on the story, "ISSUED ON" in Content), so
+  "YEAR 2026" works too. A new receipt is dated the day it is made, set after mount
+  and absorbed into the undo baseline; a story saved or shared before the field
+  existed has no `issued` and keeps printing `receiptChrome.issuedOn`.
+- Six story types: the five originals plus "My Year", whose template ("Year in
+  review") is listed first for the year-end recap season.
 - Stickers can be added, selected, moved, rotated, resized, and removed. On
   touch, two fingers pinch to resize and twist to rotate; lifting one finger
   hands control back to dragging rather than ending the gesture.
@@ -220,8 +226,9 @@ The local development server normally runs at `http://localhost:3000`.
   before the app. If that applies to everyone, a recipient of a shared link must
   log in first, which breaks the no-sign-up share loop. It is a Sites access
   setting, not code.
-- A receipt's issue date (`24 AUG 2026`, `receiptChrome.issuedOn`) is the same on
-  every receipt and cannot be edited; its number only changes on Remix.
+- PNG export overflows with long receipts: with 6+ line items (or 4 with a photo)
+  the stamp runs into the barcode. On screen is fine; `downloadStory` lays items
+  out at a fixed 115px pitch and never shrinks.
 
 ## Definition of done
 

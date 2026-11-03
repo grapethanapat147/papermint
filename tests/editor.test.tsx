@@ -108,6 +108,16 @@ describe("the subject comes first", () => {
   });
 });
 
+describe("issue date", () => {
+  test("is editable, shows on the receipt, and is saved with the draft", async () => {
+    render(<StoriesHome />);
+    const field = within(panel("Receipt content") as HTMLElement).getByRole("textbox", { name: /ISSUED ON/ });
+    fireEvent.change(field, { target: { value: "YEAR 2026" } });
+    expect(document.querySelector(".life-date")?.textContent).toContain("YEAR 2026");
+    await waitFor(() => expect(window.localStorage.getItem("papermint:draft")).toContain("YEAR 2026"), { timeout: 3000 });
+  });
+});
+
 describe("opening a scanned look (#t=)", () => {
   const banner = () => [...document.querySelectorAll(".invite-banner")].find((b) => b.textContent?.includes("look someone shared"));
 

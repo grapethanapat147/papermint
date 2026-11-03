@@ -42,7 +42,7 @@ export function ReceiptCanvas({
 }: ReceiptCanvasProps) {
   const {
     tone, decoration, accent, paperTone, fontStyle, edgeStyle, textScale, isGenerating,
-    edition, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory, remixNotice,
+    edition, issued, activeKind, names, note, total, items, setDraggedItemId, reorderLineItem, generateStory, remixNotice,
   } = draft;
   const {
     stickers, selectedStickerId, draggingStickerId,
@@ -76,7 +76,7 @@ export function ReceiptCanvas({
               semantics screen readers rely on to read the receipt itself. */}
           {/* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions */}
           <div className="life-seal receipt-click-target" onClick={() => setActiveTool("style")}>P</div><h2 className="receipt-click-target" onClick={() => setActiveTool("content")}>{activeKind.label}</h2><p className="receipt-click-target" onClick={editSubject}>{names || receiptChrome.fallbackNames}</p>
-          <div className="life-date"><span>{receiptChrome.issuedLabel}</span><span>{receiptChrome.issuedOn}</span></div>
+          <div className="life-date"><span>{receiptChrome.issuedLabel}</span><span>{issued || receiptChrome.issuedOn}</span></div>
           {photoData && <div
             className="life-photo receipt-click-target"
             onClick={() => { if (photoDrag.current?.moved) { photoDrag.current = null; return; } setActiveTool("photo"); }}

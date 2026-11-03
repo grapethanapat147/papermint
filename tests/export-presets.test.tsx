@@ -1,8 +1,9 @@
-import { fireEvent, render, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import StoriesHome from "../app/page";
-import { receiptChrome } from "../app/data/story";
+import { formatIssued, receiptChrome } from "../app/data/story";
+import { encodeStory } from "../app/lib/share";
 import { exportPresets } from "../app/lib/export";
 
 /**
@@ -69,9 +70,23 @@ describe("receipt copy has one source", () => {
   test("the on-screen receipt prints the shared chrome strings", () => {
     render(<StoriesHome />);
     const receipt = (document.querySelector("#story-receipt") as HTMLElement).textContent ?? "";
-    for (const text of [receiptChrome.brand, receiptChrome.issuedLabel, receiptChrome.issuedOn, receiptChrome.totalLabel, receiptChrome.disclaimer]) {
+    for (const text of [receiptChrome.brand, receiptChrome.issuedLabel, receiptChrome.totalLabel, receiptChrome.disclaimer]) {
       expect(receipt).toContain(text);
     }
+  });
+
+  test("a new receipt is dated today; one shared before the date was editable keeps the old fallback", async () => {
+    render(<StoriesHome />);
+    await waitFor(() => expect(document.querySelector(".life-date")?.textContent).toContain(formatIssued(new Date())));
+    cleanup();
+
+    window.location.hash = `#s=${encodeStory({
+      kind: "work", names: "Crew", note: "", tone: "funny", stickers: [],
+      items: [{ id: "i1", label: "A line", quantity: "× 1" }], total: "T", edition: 3,
+    })}`;
+    render(<StoriesHome />);
+    await waitFor(() => expect(document.querySelector("#story-receipt")?.textContent).toContain("Crew"));
+    expect(document.querySelector(".life-date")?.textContent).toContain(receiptChrome.issuedOn);
   });
 
   test("an empty note falls back to the shared string, on screen and in export", () => {

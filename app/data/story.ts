@@ -6,6 +6,7 @@ export const kinds: Array<{ id: StoryKind; label: string; icon: string; prompt: 
   { id: "trip", label: "Our Trip", icon: "⌁", prompt: "Chiang Mai with the best people" },
   { id: "work", label: "Work Survival", icon: "⌘", prompt: "Launch week, somehow survived" },
   { id: "era", label: "My Current Era", icon: "✦", prompt: "Learning to choose myself" },
+  { id: "year", label: "My Year", icon: "◴", prompt: "This year, all of it" },
 ];
 
 /** What "＋ Add" puts on the receipt before the person types anything. */
@@ -37,6 +38,11 @@ export const storyLines: Record<StoryKind, Record<Tone, Array<[string, string]>>
     funny: [["Personality rebrands", "× 3"], ["New hobbies hyperfixated", "× 7"], ["Signs from the universe", "× 22"], ["Explanations I owe", "× 0"]],
     honest: [["Old patterns noticed", "× 9"], ["People-pleasing returned", "× 2"], ["Times I chose myself", "× 6"], ["Becoming who I needed", "× NOW"]],
   },
+  year: {
+    warm: [["Months that flew by", "× 12"], ["New places, new people", "× 26"], ["Plans that changed", "× MANY"], ["Moments I'd do again", "× ALL"]],
+    funny: [["Resolutions actually kept", "× 0"], ["Times I said next year", "× 47"], ["Group chats muted", "× 9"], ["Main character months", "× 12"]],
+    honest: [["Things I let go of", "× 5"], ["Hard days I got through", "× 41"], ["People I'm grateful for", "× 8"], ["Who I'm becoming", "× MORE"]],
+  },
 };
 
 export const totals: Record<Tone, string[]> = {
@@ -66,6 +72,7 @@ export const photoFilters: Array<{ id: PhotoFilter; label: string; css: string }
 export const receiptChrome = {
   brand: "PAPERMINT STORIES",
   issuedLabel: "ISSUED WITH FEELINGS",
+  /** Only for receipts saved or shared before the date became editable; new ones start on the day they are made. */
   issuedOn: "24 AUG 2026",
   photoCaption: "THE MOMENT, AS IT FELT",
   totalLabel: "TOTAL",
@@ -74,3 +81,10 @@ export const receiptChrome = {
   fallbackNote: "Not perfect. Still ours.",
   fallbackNames: "Your story",
 } as const;
+
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+/** "03 NOV 2026" — spelled out by hand: locale short months vary ("Sept" in en-GB). */
+export function formatIssued(date: Date): string {
+  return `${String(date.getDate()).padStart(2, "0")} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}

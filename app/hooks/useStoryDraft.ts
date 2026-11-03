@@ -32,6 +32,8 @@ export function useStoryDraft() {
   const [items, setItems] = useState<StoryItem[]>(() => seedItems("friendship", "warm"));
   const [total, setTotal] = useState("Still adding up.");
   const [edition, setEdition] = useState(824);
+  /** Free text, e.g. "03 NOV 2026" or "YEAR 2026". Empty shows receiptChrome.issuedOn. */
+  const [issued, setIssued] = useState("");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadedFromShare, setLoadedFromShare] = useState(false);
@@ -51,7 +53,7 @@ export function useStoryDraft() {
     setDecoration(shared.decoration ?? "classic"); setAccent(shared.accent ?? "coral");
     setFontStyle(shared.fontStyle ?? "editorial"); setPaperTone(shared.paperTone ?? "cream");
     setEdgeStyle(shared.edgeStyle ?? "torn"); setTextScale(shared.textScale ?? 1.08);
-    setItems(shared.items); setTotal(shared.total); setEdition(shared.edition);
+    setItems(shared.items); setTotal(shared.total); setEdition(shared.edition); setIssued(shared.issued ?? "");
     setLoadedFromShare(fromShare);
   }, []);
 
@@ -169,8 +171,8 @@ export function useStoryDraft() {
 
   return {
     kind, names, note, tone, decoration, accent, fontStyle, paperTone, edgeStyle, textScale,
-    items, total, edition, draggedItemId, isGenerating, loadedFromShare, activeKind, remixNotice,
-    setNames, setNote, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
+    items, total, edition, issued, draggedItemId, isGenerating, loadedFromShare, activeKind, remixNotice,
+    setNames, setNote, setIssued, setDecoration, setAccent, setFontStyle, setPaperTone, setEdgeStyle,
     setTextScale, setDraggedItemId,
     hydrateDraft, applyTemplate, toTemplate, chooseKind, generateStory, appendLineItem, updateLineItem, removeLineItem,
     moveLineItem, nudgeLineItem, reorderLineItem,

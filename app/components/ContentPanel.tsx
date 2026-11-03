@@ -1,6 +1,6 @@
 import { useRef, type RefObject } from "react";
 
-import { kinds, newLine } from "../data/story";
+import { kinds, newLine, receiptChrome } from "../data/story";
 import { isSampleName } from "../lib/remix";
 import { TemplatePicker } from "./TemplatePicker";
 import type { ReceiptTemplate } from "../types";
@@ -17,6 +17,8 @@ type ContentPanelProps = {
   setNames: (value: string) => void;
   note: string;
   setNote: (value: string) => void;
+  issued: string;
+  setIssued: (value: string) => void;
   items: StoryItem[];
   appendLineItem: (label: string) => void;
   updateLineItem: (id: string, key: "label" | "quantity", value: string) => void;
@@ -62,7 +64,7 @@ function rowIndexAt(x: number, y: number): number | null {
 
 export function ContentPanel({
   subjectInputRef,
-  isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote,
+  isGenerating, generateStory, kind, chooseKind, names, setNames, note, setNote, issued, setIssued,
   items, appendLineItem, updateLineItem, removeLineItem,
   templates, templatesFull, applyTemplate, saveTemplate, deleteTemplate,
   draggedItemId, setDraggedItemId, moveLineItem, nudgeLineItem,
@@ -88,6 +90,7 @@ export function ContentPanel({
       {sampleSubject && <small className="field-hint" id="subject-hint">That&apos;s an example. Replace it with your own names or title.</small>}
       <label className="diy-field"><span>STORY TYPE</span><div className="story-types" aria-label="Choose a story type">{kinds.map((entry) => <button key={entry.id} type="button" className={kind === entry.id ? "active" : ""} aria-pressed={kind === entry.id} onClick={() => chooseKind(entry.id)}><span>{entry.icon}</span>{entry.label}</button>)}</div></label>
       <label className="diy-field"><span>ONE-LINE NOTE</span><textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} /></label>
+      <label className="diy-field"><span>ISSUED ON</span><input value={issued} maxLength={24} placeholder={receiptChrome.issuedOn} onChange={(event) => setIssued(event.target.value)} /></label>
       <div className="diy-items-heading"><span>LINE ITEMS</span><button type="button" onClick={() => appendLineItem(newLine.label)}>＋ Add</button></div>
       <div className="diy-item-list">{items.map((item, index) => (
         <div key={item.id} data-item-index={index} className={`diy-item-row${draggedItemId === item.id ? " dragging" : ""}`}>

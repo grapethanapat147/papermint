@@ -22,6 +22,8 @@ export type StorySnapshot = {
   photoOffsetY: number;
   photoFilterStyle: string;
   note: string;
+  /** Free-text issue date; empty prints receiptChrome.issuedOn. */
+  issued: string;
   /** A "make your own" link printed as a QR under the receipt; null leaves it off. */
   qrUrl: string | null;
 };
@@ -97,7 +99,7 @@ export async function downloadStory(
 ) {
   const {
     kind, edition, accent, paperTone, decoration, fontStyle, textScale,
-    activeKind, names, note, total, items, stickers, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, qrUrl,
+    activeKind, names, note, total, items, stickers, issued, photoData, photoZoom, photoOffsetX, photoOffsetY, photoFilterStyle, qrUrl,
   } = snapshot;
   // Drawn at the original absolute coordinates on a transparent surface, then
   // composited into the chosen preset. Keeping the coordinates untouched is why
@@ -116,7 +118,7 @@ export async function downloadStory(
   context.fillStyle = selectedAccent; context.font = `${fontStyle === "editorial" ? "italic " : ""}${Math.round(34 * textScale)}px ${displayFont}`; context.fillText(names.slice(0, 38) || "Your story", 540, 465);
   context.fillStyle = "#77736b"; context.font = "18px monospace";
   context.textAlign = "left"; context.fillText(receiptChrome.issuedLabel, 180, 505);
-  context.textAlign = "right"; context.fillText(receiptChrome.issuedOn, 900, 505);
+  context.textAlign = "right"; context.fillText((issued || receiptChrome.issuedOn).slice(0, 24), 900, 505);
   context.textAlign = "center";
   context.strokeStyle = "#bdb5a8"; context.setLineDash([8, 8]); context.beginPath(); context.moveTo(180, 530); context.lineTo(900, 530); context.stroke(); context.setLineDash([]);
   if (photoData) {

@@ -123,3 +123,9 @@ test("sticker assets all carry a symbol and a label", () => {
     assert.ok(sticker.label?.trim(), "sticker needs a label");
   }
 });
+
+test("issue dates are spelled out by hand, never a locale's short month", async () => {
+  const { formatIssued } = await import("../app/data/story.ts");
+  assert.equal(formatIssued(new Date(2026, 8, 3)), "03 SEP 2026");
+  assert.equal(formatIssued(new Date(2026, 10, 21)), "21 NOV 2026");
+});

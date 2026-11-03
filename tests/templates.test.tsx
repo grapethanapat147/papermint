@@ -54,6 +54,17 @@ describe("built-in templates", () => {
     expect(receipt().textContent).toContain("MY OWN SUBJECT");
   });
 
+  test("the year-end template is a My Year receipt, with that type's example subject", () => {
+    render(<StoriesHome />);
+    fireEvent.click(within(picker()).getByRole("button", { name: /Year in review/ }));
+    expect(receipt().querySelector("h2")?.textContent).toBe("My Year");
+    expect(receipt().textContent).toContain("This year, all of it");
+    expect(receipt().textContent).toContain("Months that flew by");
+    // An example, so switching type swaps it rather than keeping it as theirs.
+    fireEvent.click(screen.getByRole("button", { name: /Our Trip/i }));
+    expect(receipt().textContent).toContain("Chiang Mai with the best people");
+  });
+
   test("shipped templates cannot be deleted", () => {
     render(<StoriesHome />);
     expect(within(picker()).queryByRole("button", { name: /Delete template/ })).toBeNull();

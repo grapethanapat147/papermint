@@ -6,6 +6,21 @@ import type { ReceiptTemplate } from "../types";
  */
 export const builtInTemplates: ReceiptTemplate[] = [
   {
+    // Year-end, when everyone is posting a recap: a whole year as one receipt.
+    // Listed first so it is the one people see in December.
+    id: "builtin-year", name: "Year in review", builtIn: true,
+    kind: "year", tone: "warm", decoration: "playful", accent: "mustard",
+    fontStyle: "editorial", paperTone: "cream", edgeStyle: "torn", textScale: 1.08,
+    note: "A whole year, itemised.",
+    total: "Worth every day.",
+    items: [
+      { label: "Months that flew by", quantity: "× 12" },
+      { label: "New places, new people", quantity: "× 26" },
+      { label: "Plans that changed", quantity: "× MANY" },
+      { label: "Moments I'd do again", quantity: "× ALL" },
+    ],
+  },
+  {
     id: "builtin-friendship", name: "Old friends", builtIn: true,
     kind: "friendship", tone: "warm", decoration: "classic", accent: "coral",
     fontStyle: "editorial", paperTone: "cream", edgeStyle: "torn", textScale: 1.08,
