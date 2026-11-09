@@ -142,9 +142,12 @@ export async function downloadStory(
   }
   context.textAlign = "left"; context.font = "25px monospace";
   const itemStartY = photoData ? 990 : 630;
-  const exportItems = items.slice(0, photoData ? 4 : 7);
-  exportItems.forEach((item, index) => { const y = itemStartY + index * 115; context.fillStyle = "#343631"; context.fillText(item.label.slice(0, 34), 190, y); context.textAlign = "right"; context.font = "700 25px monospace"; context.fillText(item.quantity.slice(0, 12), 890, y); context.textAlign = "left"; context.font = "25px monospace"; });
-  const totalY = itemStartY + exportItems.length * 115 + 20; context.fillStyle = "#2a2c28"; context.fillRect(180, totalY, 720, 4); context.font = "700 22px monospace"; context.fillText("TOTAL", 190, totalY + 75); context.textAlign = "right"; context.font = "italic 44px Georgia"; context.fillText(total.slice(0, 30), 890, totalY + 75); context.textAlign = "center";
+  const barcodeY = photoData ? 1762 : 1642;
+  const { pitch, shown, more } = itemLayout(items.length, itemStartY, barcodeY);
+  const exportItems = items.slice(0, shown);
+  exportItems.forEach((item, index) => { const y = itemStartY + index * pitch; context.fillStyle = "#343631"; context.fillText(item.label.slice(0, 34), 190, y); context.textAlign = "right"; context.font = "700 25px monospace"; context.fillText(item.quantity.slice(0, 12), 890, y); context.textAlign = "left"; context.font = "25px monospace"; });
+  if (more) { context.fillStyle = "#77736b"; context.fillText(`+ ${more} MORE`, 190, itemStartY + shown * pitch); }
+  const totalY = itemStartY + (shown + (more ? 1 : 0)) * pitch + 20; context.fillStyle = "#2a2c28"; context.fillRect(180, totalY, 720, 4); context.font = "700 22px monospace"; context.fillText("TOTAL", 190, totalY + 75); context.textAlign = "right"; context.font = "italic 44px Georgia"; context.fillText(total.slice(0, 30), 890, totalY + 75); context.textAlign = "center";
   // Its own line under the total row — it used to share the total's baseline and
   // print over it. On screen it sits beside the stamp instead.
   context.textAlign = "center"; context.fillStyle = "#343631";
@@ -158,7 +161,6 @@ export async function downloadStory(
     context.font = `700 ${Math.round(sticker.size * 2.5)}px ${sticker.symbol.length > 3 ? "monospace" : "sans-serif"}`; context.fillText(sticker.symbol, 0, 0); context.restore();
   });
   // Decorative barcode, matching the .life-barcode strip on screen.
-  const barcodeY = photoData ? 1762 : 1642;
   context.fillStyle = "#2a2c28";
   for (let x = 180, seed = edition; x < 900; seed = (seed * 1103515245 + 12345) & 0x7fffffff) {
     const width = 3 + (seed % 4) * 2;
@@ -201,6 +203,23 @@ export async function downloadStory(
 
   const blob = await new Promise<Blob | null>((resolve) => target.toBlob(resolve, "image/png"));
   if (blob) await deliverPng(blob, `papermint-${kind}-${edition}-${presetId}.png`);
+}
+
+/** Space under the total for the note and the stamp circle, down to its bottom edge. */
+const BELOW_TOTAL = 20 + 250 + 93;
+const MAX_PITCH = 115;
+const MIN_PITCH = 40;
+
+/**
+ * Line pitch so the stamp clears the barcode however many lines there are: the
+ * usual 115px while they fit, tighter as they grow, and past 40px the rows that
+ * do not fit become one "+ N MORE" row instead of running into the barcode.
+ */
+export function itemLayout(count: number, startY: number, barcodeY: number) {
+  const room = barcodeY - 24 - BELOW_TOTAL - startY;
+  if (count * MIN_PITCH <= room) return { pitch: Math.min(MAX_PITCH, count ? room / count : MAX_PITCH), shown: count, more: 0 };
+  const rows = Math.floor(room / MIN_PITCH);
+  return { pitch: MIN_PITCH, shown: rows - 1, more: count - (rows - 1) };
 }
 
 /** The stamp's words in two balanced lines, shrunk to sit inside the 93px circle. */

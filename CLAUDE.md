@@ -156,6 +156,10 @@ The local development server normally runs at `http://localhost:3000`.
 - PNG export is rendered with Canvas 2D in `downloadStory`, which takes an
   export preset (story / post / receipt). Anything added to the receipt must be
   drawn there too, and its fixed copy belongs in `receiptChrome`.
+- Long receipts in the PNG: `itemLayout` in `app/lib/export.ts` keeps the 115px
+  line pitch while the lines fit and tightens it (down to 40px) so the stamp always
+  clears the barcode. Past that — about 14 lines, or 8 with a photo — the rest
+  print as one "+ N MORE" row; the screen still shows every line.
 - The app currently has no required account, database, or cloud image storage for the consumer creation flow.
 
 ## Engineering constraints
@@ -242,9 +246,6 @@ The local development server normally runs at `http://localhost:3000`.
   before the app. If that applies to everyone, a recipient of a shared link must
   log in first, which breaks the no-sign-up share loop. It is a Sites access
   setting, not code.
-- PNG export overflows with long receipts: with 6+ line items (or 4 with a photo)
-  the stamp runs into the barcode. On screen is fine; `downloadStory` lays items
-  out at a fixed 115px pitch and never shrinks.
 
 ## Definition of done
 

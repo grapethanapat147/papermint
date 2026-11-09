@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import StoriesHome from "../app/page";
 import { formatIssued, receiptChrome } from "../app/data/story";
 import { encodeStory } from "../app/lib/share";
-import { exportPresets } from "../app/lib/export";
+import { exportPresets, itemLayout } from "../app/lib/export";
 
 /**
  * jsdom has no canvas, so the drawing itself is a browser check. What is worth
@@ -94,5 +94,28 @@ describe("receipt copy has one source", () => {
     const note = [...document.querySelectorAll(".diy-panel label.diy-field")].find((label) => label.textContent?.startsWith("ONE-LINE NOTE"))?.querySelector("textarea") as HTMLTextAreaElement;
     fireEvent.change(note, { target: { value: "" } });
     expect((document.querySelector("#story-receipt") as HTMLElement).textContent).toContain(receiptChrome.fallbackNote);
+  });
+});
+
+describe("long receipts in the PNG", () => {
+  // The stamp circle's bottom edge, as drawn by downloadStory.
+  const stampBottom = (startY: number, rows: number, pitch: number) => startY + rows * pitch + 20 + 250 + 93;
+
+  test.each([
+    ["no photo", 630, 1642],
+    ["with a photo", 990, 1762],
+  ])("%s: the stamp clears the barcode at any length", (_, startY, barcodeY) => {
+    for (let count = 0; count <= 40; count++) {
+      const { pitch, shown, more } = itemLayout(count, startY, barcodeY);
+      expect(shown + more).toBe(count);
+      expect(pitch).toBeGreaterThanOrEqual(40);
+      expect(pitch).toBeLessThanOrEqual(115);
+      expect(stampBottom(startY, shown + (more ? 1 : 0), pitch)).toBeLessThanOrEqual(barcodeY - 24);
+    }
+  });
+
+  test("short receipts keep the usual 115px rhythm", () => {
+    expect(itemLayout(4, 630, 1642)).toEqual({ pitch: 115, shown: 4, more: 0 });
+    expect(itemLayout(3, 990, 1762)).toEqual({ pitch: 115, shown: 3, more: 0 });
   });
 });
