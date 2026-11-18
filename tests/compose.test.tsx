@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { handleCompose } from "../app/lib/compose-server";
 import { COMPOSE_MODEL, MAX_DESCRIPTION, isComposeRequest, parseComposed } from "../app/lib/compose-shared";
+import { COMPOSE_LIMITS, takeComposeSlot, visitorId } from "../app/lib/rate-limit";
 
 const good = {
   names: "แก๊งเชียงใหม่",
@@ -50,6 +51,8 @@ describe("isComposeRequest", () => {
   });
 });
 
+const allow = async () => "ok" as const;
+
 describe("handleCompose", () => {
   const request = (body: unknown, origin = "https://papermint.test") => new Request("https://papermint.test/api/compose", {
     method: "POST", headers: { "content-type": "application/json", origin }, body: JSON.stringify(body),
@@ -59,19 +62,19 @@ describe("handleCompose", () => {
   const reply = (text: string, stop_reason = "end_turn") => async () => ({ stop_reason, content: [{ type: "thinking", thinking: "", signature: "s" }, { type: "text", text }] });
 
   test("is off, not broken, without an API key", async () => {
-    expect((await handleCompose(request(valid), null)).status).toBe(503);
+    expect((await handleCompose(request(valid), null, allow)).status).toBe(503);
   });
 
   test("refuses other sites, and bad input, before spending anything", async () => {
     const fake = client(reply(JSON.stringify(good)));
-    expect((await handleCompose(request(valid, "https://elsewhere.example"), fake)).status).toBe(403);
-    expect((await handleCompose(request({ ...valid, description: "" }), fake)).status).toBe(400);
+    expect((await handleCompose(request(valid, "https://elsewhere.example"), fake, allow)).status).toBe(403);
+    expect((await handleCompose(request({ ...valid, description: "" }), fake, allow)).status).toBe(400);
     expect(fake.messages.create).not.toHaveBeenCalled();
   });
 
   test("asks the chosen model for schema-bound JSON at low effort, and returns the draft", async () => {
     const fake = client(reply(JSON.stringify(good)));
-    const response = await handleCompose(request(valid), fake);
+    const response = await handleCompose(request(valid), fake, allow);
     expect(response.status).toBe(200);
     expect((await response.json()).stamp).toBe("สายลุย ไม่ดูฟ้า");
     const params = fake.messages.create.mock.calls[0][0];
@@ -82,15 +85,81 @@ describe("handleCompose", () => {
   });
 
   test("a refusal, a cut-off answer and unusable JSON each get a clear status", async () => {
-    expect((await handleCompose(request(valid), client(reply("", "refusal")))).status).toBe(422);
-    expect((await handleCompose(request(valid), client(reply(JSON.stringify(good), "max_tokens")))).status).toBe(502);
-    expect((await handleCompose(request(valid), client(reply("{}")))).status).toBe(502);
+    expect((await handleCompose(request(valid), client(reply("", "refusal")), allow)).status).toBe(422);
+    expect((await handleCompose(request(valid), client(reply(JSON.stringify(good), "max_tokens")), allow)).status).toBe(502);
+    expect((await handleCompose(request(valid), client(reply("{}")), allow)).status).toBe(502);
   });
 
   test("API errors map to statuses the page can explain", async () => {
     const fails = (error: Error) => client(async () => { throw error; });
-    expect((await handleCompose(request(valid), fails(new Anthropic.RateLimitError(429, undefined, "slow down", new Headers())))).status).toBe(429);
-    expect((await handleCompose(request(valid), fails(new Anthropic.AuthenticationError(401, undefined, "bad key", new Headers())))).status).toBe(503);
-    expect((await handleCompose(request(valid), fails(new Anthropic.InternalServerError(500, undefined, "oops", new Headers())))).status).toBe(502);
+    expect((await handleCompose(request(valid), fails(new Anthropic.RateLimitError(429, undefined, "slow down", new Headers())), allow)).status).toBe(429);
+    expect((await handleCompose(request(valid), fails(new Anthropic.AuthenticationError(401, undefined, "bad key", new Headers())), allow)).status).toBe(503);
+    expect((await handleCompose(request(valid), fails(new Anthropic.InternalServerError(500, undefined, "oops", new Headers())), allow)).status).toBe(502);
+  });
+});
+
+describe("compose rate limit", () => {
+  const request = () => new Request("https://papermint.test/api/compose", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ description: "ไปทะเลกับแม่", kind: "trip", tone: "warm" }),
+  });
+
+  /** An in-memory stand-in for the R2 bucket: get, put, list with metadata, delete. */
+  function memoryBucket() {
+    const store = new Map<string, { value: string; customMetadata?: Record<string, string> }>();
+    return {
+      store,
+      async get(key: string) { const hit = store.get(key); return hit ? { text: async () => hit.value } : null; },
+      async put(key: string, value: string, options?: { customMetadata?: Record<string, string> }) { store.set(key, { value, customMetadata: options?.customMetadata }); },
+      async list({ prefix = "" }: { prefix?: string } = {}) {
+        return { objects: [...store].filter(([key]) => key.startsWith(prefix)).map(([key, { customMetadata }]) => ({ key, customMetadata })) };
+      },
+      async delete(key: string) { store.delete(key); },
+    };
+  }
+
+  const NOW = Date.UTC(2026, 10, 18, 10, 30);
+
+  test("a visitor gets their hourly allowance, then a 429, and a fresh hour resets it", async () => {
+    const bucket = memoryBucket();
+    for (let n = 0; n < COMPOSE_LIMITS.perVisitorPerHour; n++) expect(await takeComposeSlot(bucket, "a", NOW)).toBe("ok");
+    expect(await takeComposeSlot(bucket, "a", NOW)).toBe("visitor");
+    expect(await takeComposeSlot(bucket, "b", NOW)).toBe("ok");
+    expect(await takeComposeSlot(bucket, "a", NOW + 60 * 60 * 1000)).toBe("ok");
+  });
+
+  test("the whole site stops for the day at its cap, whoever asks", async () => {
+    const bucket = memoryBucket();
+    for (let n = 0; n < COMPOSE_LIMITS.perSitePerDay; n++) await takeComposeSlot(bucket, `v${n}`, NOW);
+    expect(await takeComposeSlot(bucket, "someone-new", NOW)).toBe("site");
+    expect(await takeComposeSlot(bucket, "someone-new", NOW + 24 * 60 * 60 * 1000)).toBe("ok");
+  });
+
+  test("spent windows are swept when a new one starts", async () => {
+    const bucket = memoryBucket();
+    await takeComposeSlot(bucket, "a", NOW);
+    await takeComposeSlot(bucket, "a", NOW + 2 * 60 * 60 * 1000);
+    const hourly = [...bucket.store.keys()].filter((key) => key.startsWith("ratelimit/h/"));
+    expect(hourly).toHaveLength(1);
+  });
+
+  test("a limited request never reaches Claude, and says why", async () => {
+    const create = vi.fn();
+    const fake = { messages: { create } } as unknown as Pick<Anthropic, "messages">;
+    const visitor = await handleCompose(request(), fake, async () => "visitor");
+    const site = await handleCompose(request(), fake, async () => "site");
+    expect(visitor.status).toBe(429);
+    expect(site.status).toBe(429);
+    expect((await visitor.json()).error).toMatch(/this hour/);
+    expect((await site.json()).error).toMatch(/today/);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  test("the stored visitor id is keyed, short and not the address", async () => {
+    const id = await visitorId("203.0.113.7", "secret-one");
+    expect(id).toMatch(/^[0-9a-f]{24}$/);
+    expect(id).not.toContain("203");
+    expect(await visitorId("203.0.113.7", "secret-one")).toBe(id);
+    expect(await visitorId("203.0.113.7", "secret-two")).not.toBe(id);
   });
 });

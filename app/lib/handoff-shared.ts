@@ -42,7 +42,8 @@ export function isExpired(record: { expiresAt: number }, now = Date.now()) {
 export const SWEEP_LIMIT = 200;
 
 /**
- * Deletes handoffs whose 24 hours are up.
+ * Deletes objects under `prefix` whose `expiresAt` has passed — handoffs whose
+ * 24 hours are up, and spent rate-limit windows.
  *
  * Runs opportunistically on create so expiry does not depend on a bucket
  * lifecycle rule, which lives in the Cloudflare dashboard rather than in this
@@ -57,8 +58,9 @@ export async function sweepExpired(
     delete(key: string): Promise<void>;
   },
   now = Date.now(),
+  prefix = "handoff/",
 ): Promise<number> {
-  const listing = await bucket.list({ prefix: "handoff/", limit: SWEEP_LIMIT, include: ["customMetadata"] });
+  const listing = await bucket.list({ prefix, limit: SWEEP_LIMIT, include: ["customMetadata"] });
   const stale = listing.objects.filter((object) => {
     const raw = object.customMetadata?.expiresAt;
     if (!raw) return true; // written before metadata existed, or tampered with

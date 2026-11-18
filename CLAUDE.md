@@ -123,11 +123,16 @@ The local development server normally runs at `http://localhost:3000`.
   rule — Claude's lines and subject are marked as samples (for this page load),
   so a later Remix or draft may replace them, never the person's own. The stamp
   ("STILL ADDING UP" by default) becomes Claude's identity label.
-  Off unless the deployment has an `ANTHROPIC_API_KEY` secret: the route answers
-  503 and the box says AI writing isn't set up. Locally, put the key in
-  `.dev.vars` (gitignored). There is no per-visitor rate limit (no KV) — only the
-  size cap, a same-origin check and the cheap model — so set a monthly spend
-  limit on the key in the Claude Console.
+  Off unless the deployment has an `ANTHROPIC_API_KEY` secret AND the `HANDOFF`
+  R2 bucket: the route answers 503 and the box says AI writing isn't set up.
+  Locally, put the key in `.dev.vars` (gitignored).
+  Rate limit (`app/lib/rate-limit.ts`): 10 calls per visitor per hour and 300 for
+  the whole site per day, counted in R2 objects under `ratelimit/` in the same
+  bucket (no new binding) and swept like handoffs. The visitor is an HMAC of
+  `CF-Connecting-IP` keyed by the API key, so no address is stored. Over either
+  limit the route answers 429 before calling Claude. Counting is read-then-write,
+  so a parallel burst can slip a few past; an R2 error lets the call through.
+  Still set a monthly spend limit on the key in the Claude Console.
 - Six story types: the five originals plus "My Year", whose template ("Year in
   review") is listed first for the year-end recap season.
 - Stickers can be added, selected, moved, rotated, resized, and removed. On
